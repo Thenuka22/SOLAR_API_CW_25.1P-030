@@ -2,10 +2,10 @@
   "name": "solar-generation-api",
   "version": "1.0.0",
   "description": "Real-Time Solar Generation Data API",
-  "main": "src/app.js",
+  "main": "src/server.js",
   "scripts": {
-    "start": "node src/app.js",
-    "dev": "nodemon src/app.js"
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
   },
   "author": "I.T Kannangara",
   "license": "ISC",
