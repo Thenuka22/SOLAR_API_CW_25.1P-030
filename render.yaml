@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: solar-generation-api
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: 24.16.0

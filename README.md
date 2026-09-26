@@ -5,3 +5,19 @@
 - Coventry Index: 16603116
 - NIBM Index: COBSCCOMP25.1P – 030
 - NIBM Registered Name: I.T Kannangara
+
+## Deployment
+
+The API is deployed on [Render](https://render.com) as a Node web service, configured by `render.yaml`.
+
+| Setting | Value |
+| --- | --- |
+| Service type | Web Service |
+| Runtime | Node 24.16.0 |
+| Plan | Free |
+| Region | Singapore |
+| Build command | `npm ci` |
+| Start command | `npm start` |
+| Health check | `/` |
+
+Render sets the `PORT` environment variable, and the server listens on that port on `0.0.0.0`.
