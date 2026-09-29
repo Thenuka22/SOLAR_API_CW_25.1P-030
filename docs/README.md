@@ -1,19 +1,18 @@
-# Design Documentation
+# Project Documentation
 
-These documents describe the agreed design. They are engineering notes, not evidence that the planned features are implemented or tested.
-
-| Document | Owns |
+| File | Contents |
 | --- | --- |
-| [Architecture](architecture.md) | Components, request flow, current state, and design decisions |
-| [Domain model](domain-model.md) | Entities, attributes, relationships, measurement meanings, and data integrity |
-| [API contract](api-contract.md) | Resource classifications, endpoint names, representations, and HTTP behaviour |
-| [Security](security.md) | Client identities, permissions, jurisdiction enforcement, and credential handling |
-| [Testing](testing.md) | Planned acceptance checks and the evidence needed before a feature is complete |
+| [Domain model](domain-model.md) | Entities, measurements, relationships, integrity rules |
+| [API endpoints](api-endpoints.md) | Paths, permissions, inputs, successful responses, error codes |
+| [API guidelines](api-guidelines.md) | Relevant WSO2 rules, their application, and justified differences |
+| [Architecture](architecture.md) | Current setup, planned components, request flow |
+| [Security](security.md) | Access boundaries and the provisioning assumption |
+| [Testing](testing.md) | Checks to run as features are implemented |
 
-Read the architecture and domain model before the API contract. Each topic has one owning document; link to it instead of copying its rules elsewhere.
+Deployment settings stay in the [project README](../README.md#deployment). Domain endpoints and security are still planned; these notes do not claim they are live or tested.
 
-The [project README](../README.md#deployment) owns the Render deployment settings. Keep the root README as the project entry point.
+## Next coding step
 
-## Review workflow
+Add shared JSON error handling: an error helper, malformed-JSON handling, unknown-route handling, and focused tests. Define the application error codes and detail shape in that increment. Preserve the existing root and Swagger routes. Suggested commit: `feat: add consistent JSON error handling`.
 
-Make one focused change with relevant checks, commit it, and stop for review. Report the commit hash, changed behaviour, checks performed, and next increment. Do not describe planned tests as passed or planned endpoints as live.
+Then add OpenAPI schemas and database migrations in separate small increments. Define detailed credential and summary schemas before coding those features. After each commit, review its changes and test results before continuing.

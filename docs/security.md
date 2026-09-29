@@ -1,35 +1,27 @@
-# Security Design
+# Security
 
-Status: planned. Authentication and authorization are not implemented yet. The [domain model](domain-model.md#user-scope) owns valid User jurisdiction combinations; the [API contract](api-contract.md#endpoint-register) owns route permissions.
+Planned permissions; authentication is not implemented yet. [User scope](domain-model.md#user-scope) defines valid role/jurisdiction combinations.
 
-## Principals
-
-| Principal | Allowed access |
+| Caller | Permission |
 | --- | --- |
-| Installation device | Submit readings for its authenticated installation only |
-| National reader | Read across all jurisdictions |
-| Provincial reader | Read within its assigned province |
-| District reader | Read within its assigned district |
-| Provisioner | Inspect necessary substation/installation metadata and manage installations; no reading ingestion or analyst access is implied |
-
-Ancestor metadata may be visible when needed to describe an authorized asset, but its collections and counts must not reveal unauthorized siblings. Missing and out-of-scope resource identifiers return the same 404 shape.
+| Device | Submit readings for its own installation only |
+| National reader | Read all jurisdictions |
+| Provincial reader | Read within one province |
+| District reader | Read within one district |
+| Provisioner | Read necessary substation/installation metadata and manage installations; no measurement access |
 
 ## Provisioning decision
 
-Keep device measurements immutable while demonstrating CRUD on installation metadata through a separate provisioning identity. This administrative extension is a chosen interpretation, not confirmed external guidance. It does not give ordinary SLSEA readers write permissions or turn a device into an administrator.
+Readings stay append-only. CRUD applies to installation metadata through a separate provisioning identity, not a normal SLSEA reader or device. This is a design assumption, not confirmed external guidance. No public registration may grant provisioning privileges.
 
-The provisioning identity is separate from the national/provincial/district User roles. Its credentials must be configured securely, not exposed through public registration. Credential storage and issuance details will be fixed in the authentication implementation increment.
+An installation with readings cannot be deleted or moved to a different substation. Use database constraints and transactions to protect this rule.
 
-Reject deletion of an installation with readings and reject moving its history into another substation/jurisdiction. Enforce this in transactions and database constraints, not only route checks.
+## Checks required
 
-## Enforcement
+- Verify credentials before issuing a JWT. Derive roles, scopes, and jurisdiction on the server; never accept them as client-granted permissions. This issuer is not a full OAuth server.
+- Verify JWT signature, allowed algorithm, issuer, audience, expiry, and principal type. Define credential schemas and storage before implementing issuance.
+- Apply jurisdiction restrictions in SQL before counting, paging, or aggregating. Ancestor metadata must not expose unauthorized siblings. Nested reading IDs must belong to the specified installation.
+- Return 401 for invalid authentication, 403 for a forbidden operation, and the same 404 response for missing and concealed out-of-scope resources. Validate access before returning 304 or exposing validators.
+- Keep passwords/secrets hashed where verified, use HTTPS and parameterized SQL, and redact credentials from responses/logs. Token responses use no-store; authenticated data must not enter shared caches.
 
-- `/issue-token` verifies registered credentials and derives claims on the server. Never accept client-selected roles, scopes, or jurisdiction as authority. This is a custom JWT issuer, not a full OAuth server.
-- Validate the signature, allowed algorithm, issuer, audience, expiry, and principal type. Scopes describe allowed operations; ownership/jurisdiction checks constrain the target data.
-- Intersect authorized jurisdiction with requested filters inside database queries before counts, pagination, summaries, composites, or response validators are calculated.
-- Check both the installation and reading identifiers on nested requests. Never authorize by possession of an identifier alone.
-- Apply authorization to conditional requests before returning 304 or exposing ETag/Last-Modified.
-- Use HTTPS, protected environment configuration, hashed credential storage where passwords/secrets are verified, and parameterized SQL. Do not commit credentials or log tokens/passwords.
-- Redact credential attributes from all metadata and composite representations. Prevent shared caching of authenticated domain data and disable caching of token responses.
-
-The security tests must demonstrate denials as well as successful access. A role label or JWT scope alone does not prove that jurisdiction isolation works.
+Endpoint-specific permissions and errors are listed in [API Endpoints](api-endpoints.md).

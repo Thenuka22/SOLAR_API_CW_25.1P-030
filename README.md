@@ -8,7 +8,7 @@
 
 ## Design documentation
 
-See the [design documentation index](docs/README.md) for the architecture, domain model, API contract, security design, and test plan. Planned features are labelled separately from the current implementation.
+See the [documentation index](docs/README.md) for the domain model, endpoint responses and errors, WSO2 design rules, architecture, security, and testing notes. Domain features are still planned.
 
 ## Deployment
 
