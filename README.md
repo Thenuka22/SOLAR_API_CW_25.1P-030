@@ -6,6 +6,10 @@
 - NIBM Index: COBSCCOMP25.1P – 030
 - NIBM Registered Name: I.T Kannangara
 
+## Design documentation
+
+See the [design documentation index](docs/README.md) for the architecture, domain model, API contract, security design, and test plan. Planned features are labelled separately from the current implementation.
+
 ## Deployment
 
 The API is deployed on [Render](https://render.com) as a Node web service, configured by `render.yaml`.
