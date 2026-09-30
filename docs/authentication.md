@@ -1,6 +1,6 @@
 # Authentication
 
-How each principal proves who it is, what its access token contains, and how credentials are stored. Permissions after authentication are in [Security](security.md). The credential tables and the hash helper (`src/auth/credentialHash.js`) exist; token issuance and verification are not implemented yet.
+How each principal proves who it is, what its access token contains, and how credentials are stored. Permissions after authentication are in [Security](security.md). Token issuance (`POST /solar/v1.0/issue-token`) and bearer-token authentication (`src/middleware/authenticate.js`) are implemented.
 
 ## Principals
 
@@ -76,6 +76,18 @@ Tokens are signed with HS256 using the `JWT_SECRET` environment variable (at lea
 Tokens carry no role, jurisdiction, or permission list. On each request the server loads the principal named by `sub` and `principalType`: a staff user's role and province or district come from the `users` row, and a device may write only to the installation in `sub`. Scope changes therefore apply at once, and a deleted principal's token stops working.
 
 A token is also rejected if its `credentialVersion` differs from the stored `credential_version`. The database gives a credential a new random version whenever its hash changes, so changing a password or rotating a device secret invalidates every earlier token, including one issued in the same second. A time comparison such as `iat < changed_at` cannot guarantee that, because `iat` has whole-second precision.
+
+## Bearer authentication
+
+Protected requests send `Authorization: Bearer <accessToken>`. For every request the server:
+
+1. Rejects a missing header with 401 (code 3002) and `WWW-Authenticate: Bearer realm="solar-generation-api"`.
+2. Verifies the token: HS256 signature only (a token using `none`, another HMAC size, or an RSA algorithm is rejected), `iss`, `aud`, and `exp`, which must be present. `sub` and `credentialVersion` must be UUIDs, `principalType` one of the three types, and `exp - iat` no longer than that type's lifetime.
+3. Loads the principal named by `sub` and `principalType` from PostgreSQL and compares its current `credential_version` with the token's.
+
+Any failure in steps 2 and 3 returns the same 401 (code 3003) with `WWW-Authenticate: Bearer realm="solar-generation-api", error="invalid_token"`. This covers tampered, expired, and forged tokens, a changed password or rotated device secret, a deleted principal or credential, and a token whose `sub` belongs to a different principal type.
+
+The loaded principal, not the token, supplies the scope: a staff user's role, the province they may read (their own, or their district's province for a district user), and their district. A scope change therefore applies to the next request made with an existing token. A route that allows only some principal types answers other authenticated principals with 403 (code 3004); for example, a device token cannot be used for staff reads.
 
 ## Credential storage
 

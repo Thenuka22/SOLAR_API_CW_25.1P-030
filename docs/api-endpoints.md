@@ -129,6 +129,9 @@ Every error response, including 404 for unknown paths, is JSON:
 | 1009 | 429 | Rate limit exceeded; the response includes Retry-After |
 | 2001 | 400 | Request input fails validation; `details` lists each problem |
 | 3001 | 401 | Token request credentials are not valid |
+| 3002 | 401 | No bearer token was sent |
+| 3003 | 401 | The bearer token is invalid, expired, or revoked |
+| 3004 | 403 | The authenticated principal type may not use this operation |
 
 Codes 1000-1099 cover general request and routing errors, 2000-2099 input validation, and 3000-3099 authentication and authorization. Domain errors get their own range when those features are implemented. JSON bodies are parsed before routing, so malformed JSON sent to an unknown path returns 400, not 404. The code catalogue is in `src/errors.js`.
 
