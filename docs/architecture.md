@@ -6,7 +6,7 @@ The backend is one Express application with PostgreSQL for storage. Render runs 
 
 `src/server.js` loads environment variables and starts the listener. `src/app.js` exports the Express app, parses JSON, returns the root status response, and serves Swagger UI at `/api-docs`. Unmatched paths and all errors go through `src/middleware/errors.js`, which returns the JSON [error format](api-endpoints.md#error-format) using the code catalogue in `src/errors.js`. The PostgreSQL pool configuration exists, but no route uses it yet.
 
-The schema is built by numbered SQL migrations in `src/db/migrations/`, applied with `npm run db:migrate` (see the [project README](../README.md#database-migrations)). They create tables for the six [domain model](domain-model.md) entities, with UUID primary keys and these rules enforced by PostgreSQL:
+The schema is built by numbered SQL migrations in `src/db/migrations/`, applied with `npm run db:migrate` (see the [project README](../README.md#database-migrations)). They create tables for the six [domain model](domain-model.md) entities and for credentials, with UUID primary keys and these rules enforced by PostgreSQL:
 
 | Table | Integrity rules |
 | --- | --- |
@@ -16,6 +16,7 @@ The schema is built by numbered SQL migrations in `src/db/migrations/`, applied 
 | `solar_installations` | Substation required; `meter_id` required and unique ignoring case and surrounding spaces; address optional; `capacity_kw` greater than 0; `substation_id` cannot change once the installation has readings |
 | `generation_readings` | Installation required; `timestamptz` timestamp; one reading per installation and timestamp; power, energy, and voltage non-negative; UPDATE, DELETE, and TRUNCATE rejected by triggers |
 | `users` | Name required; email required, basic format, unique ignoring case; role `national`, `provincial`, or `district` with the matching [scope](domain-model.md#user-scope) |
+| `user_credentials`, `device_credentials`, `provisioners` | One credential per user or installation, deleted with it; provisioner username required and unique ignoring case and surrounding spaces; secrets stored only as scrypt hashes, any other value rejected; `changed_at` set by a trigger. See [Authentication](authentication.md#credential-storage) |
 
 A parent row that still has children cannot be deleted. The reading column keeps the domain model's name, `timestamp`, so write it as `"timestamp"` in SQL.
 

@@ -1,6 +1,6 @@
 # Authentication
 
-How each principal proves who it is, what its access token contains, and how credentials are stored. Permissions after authentication are in [Security](security.md). Token issuance and verification are not implemented yet.
+How each principal proves who it is, what its access token contains, and how credentials are stored. Permissions after authentication are in [Security](security.md). The credential tables and the hash helper (`src/auth/credentialHash.js`) exist; token issuance and verification are not implemented yet.
 
 ## Principals
 
@@ -59,6 +59,7 @@ Credentials are security data, not domain attributes, so they live in their own 
 
 - Every secret is stored only as an scrypt hash in PHC string form: `$scrypt$ln=15,r=8,p=3$<salt>$<hash>`, with a 16-byte random salt and a 32-byte derived key, both base64 without padding. N = 2^15, r = 8, p = 3 is one of the [OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#scrypt) minimum settings; it needs about 32 MB per hash, less than N = 2^17 with p = 1. scrypt is built into Node, so no native package is needed.
 - The parameters are stored in each hash, so they can be raised later without invalidating existing hashes.
+- Secrets are Unicode-normalized (NFC) before hashing, so equivalent forms of the same characters verify alike.
 - The database rejects any value that is not in this hash format, so a plaintext secret cannot be stored by mistake.
 - `changed_at` is set by the database when a credential is created and whenever its hash changes.
 - Deleting a user or installation deletes its credential. An installation with readings cannot be deleted, so its device credential stays with it.

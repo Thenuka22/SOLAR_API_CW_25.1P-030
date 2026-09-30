@@ -23,8 +23,10 @@ Inspect query plans on the full seed and run a bounded local load test at 25 con
 
 ## Recorded results
 
-Run the automated tests with `npm test` (Node's built-in test runner; no database needed).
+Run the automated tests with `npm test` (Node's built-in test runner). Tests under `test/db/` use `DATABASE_URL` after `npm run db:migrate` and `npm run db:seed`; they run inside one transaction that is rolled back, and are skipped when `DATABASE_URL` is not set.
 
 | Area | Test file | Result |
 | --- | --- | --- |
 | Error format | `test/errors.test.js` | 17 passed, 0 failed on 2026-09-30: root and Swagger still served; unknown path 404; unsupported method 405 with Allow; malformed or non-object JSON 400; oversized body 413; unsupported charset or content encoding 415; bad path encoding 400; unexpected errors give a generic 500 without internal details |
+| Credential hashing | `test/credentialHash.test.js` | 8 passed, 0 failed on 2026-09-30: documented PHC format, random salt, right and wrong secrets, stored parameters honoured, NFC-equivalent secrets, malformed or out-of-range stored hashes rejected, device secret format |
+| Credential tables | `test/db/credentials.test.js` | 17 passed, 0 failed on 2026-09-30 against the development database: only hash columns, plaintext and other non-scrypt values rejected in every hash column, null hashes, foreign keys, one credential per user and installation, provisioner username rules, `changed_at` set by the database and advanced only by a hash change, cascade on delete, and a credential kept for an installation with readings |

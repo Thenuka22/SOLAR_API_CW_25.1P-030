@@ -14,9 +14,8 @@ Deployment settings stay in the [project README](../README.md#deployment). Domai
 
 ## Next coding steps
 
-The database migrations for all six entities, the repeatable demonstration seed data, and the shared JSON error format are in place; see [Architecture](architecture.md#what-exists-now).
+The database migrations for all six entities and for credentials, the repeatable demonstration seed data, and the shared JSON error format are in place; see [Architecture](architecture.md#what-exists-now).
 
-1. Add the credential tables described in [Authentication](authentication.md#credential-storage), with database tests.
-2. Add a repeatable database test suite for the migrations and seed data before final submission.
+1. Add a repeatable database test suite for the migrations and seed data before final submission.
 
 Add OpenAPI schemas in separate small increments. Define the detailed summary schema before coding that feature. After each commit, review its changes and test results before continuing.

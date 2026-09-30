@@ -34,7 +34,7 @@ The seeds load 9 provinces, 25 districts, 35 grid substations, 200 installations
 npm test
 ```
 
-Runs the automated tests in `test/` with Node's built-in test runner. They start the app on a temporary local port and do not need a database. See [Testing](docs/testing.md#recorded-results).
+Runs the automated tests in `test/` with Node's built-in test runner. The HTTP tests start the app on a temporary local port. The database tests in `test/db/` need `DATABASE_URL`, migrations, and seed data; they roll back everything they write and are skipped when `DATABASE_URL` is not set. See [Testing](docs/testing.md#recorded-results).
 
 ## Deployment
 
