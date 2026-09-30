@@ -92,7 +92,7 @@ Combine regional filters with AND. Valid filters with no visible matches return 
 | Method | Path | Caller and input | Success | Errors |
 | --- | --- | --- | --- | --- |
 | POST | `/summarize-district-generation` | Reader; `districtId`, optional `date` in YYYY-MM-DD | 200, district generation summary | 400, 401, 403, 404, 406, 415 |
-| POST | `/issue-token` | Registered principal; `principalType` and its credentials, not an existing bearer token | 200, `accessToken`, `tokenType`, `expiresIn` | 400, 401, 406, 415, 429 |
+| POST | `/issue-token` | Registered principal; `principalType` and its credentials, not an existing bearer token | 200, `accessToken`, `tokenType`, `expiresIn` | 400, 406, 415, 429 |
 
 The summary date defaults to today in Asia/Colombo. Return latest known district power separately from energy for the requested date, with freshness and contributing/missing installation counts. Calculate energy from cumulative-meter differences, never by summing cumulative values. Missing boundary samples or counter anomalies make the energy result incomplete. Fix the detailed calculation and response schema with small numerical examples before implementing this endpoint.
 
@@ -105,8 +105,8 @@ The summary is computed immediately, creates no persistent resource, and has no 
 | 200 | Requested result or completed metadata operation |
 | 201 | Resource created; include Location and the created representation |
 | 304 | GET representation unchanged; empty body |
-| 400 | Malformed JSON, invalid UUID/value/query, missing required input, or unknown writable field |
-| 401 | Missing/invalid credentials or bearer token; include an appropriate WWW-Authenticate challenge |
+| 400 | Malformed JSON, invalid UUID/value/query, missing required input, unknown writable field, or token request credentials that are not valid |
+| 401 | Missing or invalid bearer token; include a `Bearer` WWW-Authenticate challenge |
 | 403 | Principal lacks the operation permission, including a device targeting another installation |
 | 404 | Missing or concealed out-of-scope resource, or reading under the wrong parent |
 | 405 | Unsupported method on a known path; include Allow |
@@ -149,7 +149,7 @@ Every error response, including 404 for unknown paths, is JSON:
 | 1008 | 415 | Request body is not `application/json` |
 | 1009 | 429 | Rate limit exceeded; the response includes Retry-After |
 | 2001 | 400 | Request input fails validation; `details` lists each problem |
-| 3001 | 401 | Token request credentials are not valid |
+| 3001 | 400 | Token request credentials are not valid; same response whatever the cause |
 | 3002 | 401 | No bearer token was sent |
 | 3003 | 401 | The bearer token is invalid, expired, or revoked |
 | 3004 | 403 | The authenticated principal type may not use this operation |

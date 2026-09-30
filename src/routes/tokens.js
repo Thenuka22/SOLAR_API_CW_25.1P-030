@@ -67,11 +67,7 @@ async function issueTokenHandler(req, res) {
   const principal = await authenticateCredentials(type, req.body[idField], req.body[secretField]);
 
   // One response for an unknown identifier, a missing credential, and a wrong secret.
-  if (!principal) {
-    throw new ApiError(ERRORS.INVALID_CREDENTIALS, {
-      headers: { 'WWW-Authenticate': 'Bearer realm="solar-generation-api"' },
-    });
-  }
+  if (!principal) throw new ApiError(ERRORS.INVALID_CREDENTIALS);
 
   const { accessToken, expiresIn } = issueToken(principal);
   res.set({ 'Cache-Control': 'no-store', Pragma: 'no-cache' });

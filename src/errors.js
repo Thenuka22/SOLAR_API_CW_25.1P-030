@@ -19,7 +19,10 @@ const ERRORS = {
   UNSUPPORTED_MEDIA_TYPE: { code: 1008, status: 415, message: 'The request body must be application/json.' },
   TOO_MANY_REQUESTS: { code: 1009, status: 429, message: 'Too many requests. Try again later.' },
   VALIDATION_FAILED: { code: 2001, status: 400, message: 'The request is not valid.' },
-  INVALID_CREDENTIALS: { code: 3001, status: 401, message: 'The credentials are not valid.' },
+  // 400, not 401: the token endpoint takes credentials in the JSON body, and no WWW-Authenticate
+  // challenge describes that (RFC 9110 section 11.6.1). OAuth 2.0 uses 400 invalid_grant for the
+  // same case (RFC 6749 section 5.2).
+  INVALID_CREDENTIALS: { code: 3001, status: 400, message: 'The credentials are not valid.' },
   AUTHENTICATION_REQUIRED: { code: 3002, status: 401, message: 'A bearer token is required.' },
   INVALID_TOKEN: { code: 3003, status: 401, message: 'The bearer token is not valid.' },
   FORBIDDEN: { code: 3004, status: 403, message: 'You do not have permission for this operation.' },

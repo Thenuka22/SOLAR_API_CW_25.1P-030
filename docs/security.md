@@ -21,7 +21,7 @@ An installation with readings cannot be deleted or moved to a different substati
 - Verify credentials before issuing a JWT. Derive roles, scopes, and jurisdiction on the server; never accept them as client-granted permissions. This issuer is not a full OAuth server.
 - Verify JWT signature, allowed algorithm, issuer, audience, expiry, and principal type, then load the principal from the database and check its credential version. See [Bearer authentication](authentication.md#bearer-authentication).
 - Apply jurisdiction restrictions in SQL before counting, paging, or aggregating. Ancestor metadata must not expose unauthorized siblings. Nested reading IDs must belong to the specified installation.
-- Return 401 for invalid authentication, 403 for a forbidden operation, and the same 404 response for missing and concealed out-of-scope resources. Validate access before returning 304 or exposing validators.
+- Return 401 with a Bearer challenge for a missing or invalid bearer token, 400 for rejected token-request credentials (see [Token request](authentication.md#token-request)), 403 for a forbidden operation, and the same 404 response for missing and concealed out-of-scope resources. Validate access before returning 304 or exposing validators.
 - Keep passwords/secrets hashed where verified, use HTTPS and parameterized SQL, and redact credentials from responses/logs. Token responses use no-store; authenticated data must not enter shared caches.
 
 Endpoint-specific permissions and errors are listed in [API Endpoints](api-endpoints.md).
