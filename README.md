@@ -63,3 +63,11 @@ The API is deployed on [Render](https://render.com) as a Node web service, confi
 | Health check | `/` |
 
 Render sets the `PORT` environment variable, and the server listens on that port on `0.0.0.0`.
+
+| Environment variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection string; set in the Render dashboard |
+| `JWT_SECRET` | Token signing key, at least 32 random bytes; Render generates it (`generateValue` in `render.yaml`) |
+| `TRUST_PROXY_HOPS` | Proxies whose `X-Forwarded-For` entry is trusted for the client address; `1` on Render, unset locally |
+
+For local token issuance add `JWT_SECRET` to `.env` (see `.env.example`).

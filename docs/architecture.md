@@ -4,7 +4,7 @@ The backend is one Express application with PostgreSQL for storage. Render runs 
 
 ## What exists now
 
-`src/server.js` loads environment variables and starts the listener. `src/app.js` exports the Express app, parses JSON, returns the root status response, and serves Swagger UI at `/api-docs`. Unmatched paths and all errors go through `src/middleware/errors.js`, which returns the JSON [error format](api-endpoints.md#error-format) using the code catalogue in `src/errors.js`. The PostgreSQL pool configuration exists, but no route uses it yet.
+`src/server.js` loads environment variables and starts the listener. `src/app.js` exports the Express app, parses JSON, returns the root status response, and serves Swagger UI at `/api-docs`. API routes are mounted under `/solar/v1.0`, where every request must accept JSON; so far `src/routes/tokens.js` issues access tokens, using `src/auth/` for credential checks and signing and `src/middleware/rateLimits.js` for rate limits. Unmatched paths and all errors go through `src/middleware/errors.js`, which returns the JSON [error format](api-endpoints.md#error-format) using the code catalogue in `src/errors.js`. The shared PostgreSQL pool in `src/config/db.js` is used by the token route.
 
 The schema is built by numbered SQL migrations in `src/db/migrations/`, applied with `npm run db:migrate` (see the [project README](../README.md#database-migrations)). They create tables for the six [domain model](domain-model.md) entities and for credentials, with UUID primary keys and these rules enforced by PostgreSQL:
 

@@ -1,7 +1,8 @@
 // Application error catalogue. Every error response has the body { code, message, details }:
 // `code` is a stable application code, separate from the HTTP status, and `details` is a list
 // of { location, field, issue } items (empty when there is nothing more to say).
-// 1000-1099 are general request and routing errors; later features add their own ranges.
+// 1000-1099 are general request and routing errors, 2000-2099 input validation, and
+// 3000-3099 authentication and authorization.
 const ERRORS = {
   INTERNAL_ERROR: { code: 1000, status: 500, message: 'An unexpected error occurred.' },
   MALFORMED_JSON: { code: 1001, status: 400, message: 'The request body is not valid JSON.' },
@@ -14,6 +15,11 @@ const ERRORS = {
   },
   RESOURCE_NOT_FOUND: { code: 1005, status: 404, message: 'The requested resource was not found.' },
   METHOD_NOT_ALLOWED: { code: 1006, status: 405, message: 'The method is not allowed for this resource.' },
+  NOT_ACCEPTABLE: { code: 1007, status: 406, message: 'The API can only respond with application/json.' },
+  UNSUPPORTED_MEDIA_TYPE: { code: 1008, status: 415, message: 'The request body must be application/json.' },
+  TOO_MANY_REQUESTS: { code: 1009, status: 429, message: 'Too many requests. Try again later.' },
+  VALIDATION_FAILED: { code: 2001, status: 400, message: 'The request is not valid.' },
+  INVALID_CREDENTIALS: { code: 3001, status: 401, message: 'The credentials are not valid.' },
 };
 
 class ApiError extends Error {

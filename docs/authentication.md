@@ -30,7 +30,7 @@ Credentials are created and changed with `npm run credentials` against `DATABASE
 
 ## Token request
 
-`POST /issue-token` takes one of these bodies. `principalType` selects the credential; unknown fields return 400.
+`POST /solar/v1.0/issue-token` takes one of these bodies as `application/json`. `principalType` selects the credential.
 
 | principalType | Other fields |
 | --- | --- |
@@ -38,13 +38,26 @@ Credentials are created and changed with `npm run credentials` against `DATABASE
 | `device` | `meterId`, `deviceSecret` |
 | `provisioner` | `username`, `password` |
 
-Email, meter ID, and username are matched ignoring case and surrounding spaces, as their unique indexes are. A wrong secret, an unknown identifier, and a principal with no stored credential all return the same 401 response. For an unknown identifier the server still verifies against a fixed dummy hash, so response time does not reveal which identifiers exist.
+Validation is strict and reports every problem at once (400, code 2001): the body must be a JSON object; `principalType` must be one of the three values; fields belonging to another principal type, or to none, are rejected; the identifier must be a non-blank string of at most 254 characters; a password must be a non-empty string of at most 128 characters; a device secret must be exactly the 43-character base64url form the server issues. The 15-character password minimum is enforced when a password is set, not at sign-in. A body that is not JSON returns 415, a missing body 400, and an Accept header that excludes JSON 406.
 
-A successful response is 200 with `Cache-Control: no-store`:
+Email, meter ID, and username are matched ignoring case and surrounding spaces, as their unique indexes are. A wrong secret, an unknown identifier, and a principal with no stored credential all return the same 401 response (code 3001, `WWW-Authenticate: Bearer realm="solar-generation-api"`). For an unknown identifier the server still verifies against a fixed dummy hash, so response time does not reveal which identifiers exist.
+
+A successful response is 200 with `Cache-Control: no-store` and `Pragma: no-cache`:
 
 ```json
 { "accessToken": "<JWT>", "tokenType": "Bearer", "expiresIn": 3600 }
 ```
+
+### Rate limits
+
+| Limit | Counts | Window |
+| --- | --- | --- |
+| 30 requests per client address | Every token request, whatever the outcome | 15 minutes |
+| 5 failed sign-ins per identifier | Failed sign-ins for one principal type and identifier (ignoring case and spaces), from any address | 15 minutes |
+
+A request over either limit returns 429 (code 1009) with `Retry-After` and `RateLimit` headers. Successful sign-ins do not count towards the identifier limit. While an identifier is limited, even the correct secret is refused, so someone can deliberately lock an account for up to 15 minutes; that is the accepted cost of stopping password guessing spread across many addresses.
+
+Counts are held in memory, which suits the single Render instance; several instances would need a shared store. The client address comes from `X-Forwarded-For` only for the number of proxies set in `TRUST_PROXY_HOPS` (0 by default, 1 on Render), so a client cannot choose its own address by sending that header.
 
 ## JWT claims
 
@@ -81,5 +94,3 @@ Credentials are security data, not domain attributes, so they live in their own 
 - `credential_version` (a random UUID) and `changed_at` are set by the database when a credential is created and whenever its hash changes; neither can be written directly. The version revokes tokens; `changed_at` is kept for auditing.
 - Deleting a user or installation deletes its credential. An installation with readings cannot be deleted, so its device credential stays with it.
 - Secrets and hashes never appear in API responses or logs.
-
-Token requests should be rate-limited per client and identifier. That limit is designed with the token endpoint.

@@ -1,6 +1,6 @@
 # API Endpoints
 
-Base path: `/solar/v1.0`. These are planned endpoints. At present, only `/` and Swagger UI at `/api-docs` are implemented, together with the shared [error format](#error-format).
+Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, and `POST /issue-token` are implemented, together with the shared [error format](#error-format).
 
 All path IDs are UUIDs. JSON uses camelCase: for example, the model's `power_kw` becomes `powerKw`. Requests and responses use `application/json`.
 
@@ -71,7 +71,7 @@ Combine regional filters with AND. Valid filters with no visible matches return 
 | Method | Path | Caller and input | Success | Errors |
 | --- | --- | --- | --- | --- |
 | POST | `/summarize-district-generation` | Reader; `districtId`, optional `date` in YYYY-MM-DD | 200, district generation summary | 400, 401, 403, 404, 406, 415 |
-| POST | `/issue-token` | Registered principal; `principalType` and its credentials, not an existing bearer token | 200, `accessToken`, `tokenType`, `expiresIn` | 400, 401, 406, 415 |
+| POST | `/issue-token` | Registered principal; `principalType` and its credentials, not an existing bearer token | 200, `accessToken`, `tokenType`, `expiresIn` | 400, 401, 406, 415, 429 |
 
 The summary date defaults to today in Asia/Colombo. Return latest known district power separately from energy for the requested date, with freshness and contributing/missing installation counts. Calculate energy from cumulative-meter differences, never by summing cumulative values. Missing boundary samples or counter anomalies make the energy result incomplete. Fix the detailed calculation and response schema with small numerical examples before implementing this endpoint.
 
@@ -94,6 +94,7 @@ The summary is computed immediately, creates no persistent resource, and has no 
 | 412 | Supplied write condition does not hold |
 | 413 | Request body larger than the 100 KB JSON limit |
 | 415 | POST/PUT body has an unsupported media type, character set, or content encoding |
+| 429 | Rate limit exceeded; include Retry-After |
 | 500 | Unexpected server failure; generic message without internal details |
 
 The endpoint tables list expected client errors for supported methods. A different method on a known path can return 405; an unknown path returns 404. Server failures can affect any endpoint and must not expose stack traces or credentials.
@@ -123,7 +124,12 @@ Every error response, including 404 for unknown paths, is JSON:
 | 1004 | 415 | Unsupported character set or content encoding for a JSON body |
 | 1005 | 404 | No endpoint matches the path |
 | 1006 | 405 | Known path, unsupported method; the response includes Allow |
+| 1007 | 406 | Accept does not allow `application/json` |
+| 1008 | 415 | Request body is not `application/json` |
+| 1009 | 429 | Rate limit exceeded; the response includes Retry-After |
+| 2001 | 400 | Request input fails validation; `details` lists each problem |
+| 3001 | 401 | Token request credentials are not valid |
 
-Codes 1000-1099 cover general request and routing errors. Validation, authentication, and domain errors get their own codes when those features are implemented. JSON bodies are parsed before routing, so malformed JSON sent to an unknown path returns 400, not 404. The code catalogue is in `src/errors.js`.
+Codes 1000-1099 cover general request and routing errors, 2000-2099 input validation, and 3000-3099 authentication and authorization. Domain errors get their own range when those features are implemented. JSON bodies are parsed before routing, so malformed JSON sent to an unknown path returns 400, not 404. The code catalogue is in `src/errors.js`.
 
 Domain GETs return ETag, Last-Modified, and private cache controls. Last-Modified uses HTTP-date in GMT, not a JSON timestamp. Composite validators change when relevant embedded data changes. If-None-Match takes precedence over If-Modified-Since; If-Match takes precedence over If-Unmodified-Since. Authenticate and check scope before evaluating response validators.
