@@ -4,12 +4,16 @@ const swaggerSpec = require('./config/swagger');
 const { notFound, methodNotAllowed, errorHandler } = require('./middleware/errors');
 const { requireJsonAccept } = require('./middleware/http');
 const tokenRoutes = require('./routes/tokens');
+const provinceRoutes = require('./routes/provinces');
 
 const app = express();
 
 // Number of proxies in front of the app whose X-Forwarded-For entries are trusted, so req.ip
 // (used for rate limiting) is the real client address. 0 locally; set for Render in render.yaml.
 app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS ?? 0));
+// Validators are set explicitly on domain GETs (src/http/conditional.js); no automatic ETags
+// on other responses such as errors.
+app.set('etag', false);
 
 app.use(express.json());
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
@@ -24,6 +28,7 @@ app
 const api = express.Router();
 api.use(requireJsonAccept);
 api.use(tokenRoutes);
+api.use(provinceRoutes);
 app.use('/solar/v1.0', api);
 
 // Keep these last: unmatched paths become 404, and every error is returned as JSON.

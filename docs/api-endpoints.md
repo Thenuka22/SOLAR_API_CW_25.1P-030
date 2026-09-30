@@ -1,6 +1,6 @@
 # API Endpoints
 
-Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, and `POST /issue-token` are implemented, together with the shared [error format](#error-format).
+Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, and `GET /provinces/{province-id}` are implemented, together with the shared [error format](#error-format).
 
 All path IDs are UUIDs. JSON uses camelCase: for example, the model's `power_kw` becomes `powerKw`. Requests and responses use `application/json`.
 
@@ -30,6 +30,23 @@ Every GET below can return 304 for an unchanged conditional request, with no bod
 - The standalone last-known-reading endpoint returns 404 when there are no readings. Latest means greatest measurement timestamp, not latest insertion.
 - A reading ID under the wrong installation returns 404. Missing and out-of-jurisdiction resources also return 404.
 - An existing, authorized parent with no children returns an empty collection with 200. A missing or inaccessible parent returns 404.
+
+### Provinces (implemented)
+
+Only staff readers may read provinces; a device or provisioner token gets 403. A national reader sees all nine provinces. A provincial reader sees only their province, and a district reader only their district's province, so their collection has a count of 1 and any other province ID returns the same 404 as a nonexistent one.
+
+A province is `{ "id": "<uuid>", "name": "Western" }`. The collection accepts only `offset` and `limit`; a single province accepts no query parameters. Page links are path-absolute, for example `/solar/v1.0/provinces?offset=2&limit=2`.
+
+Each request is handled in this order: bearer authentication (401), principal type (403), input validation (400), scoped query, then the conditional check (304) or the response. A client therefore cannot learn about an out-of-scope province from a 304, a count, or a validator.
+
+| Header | Value |
+| --- | --- |
+| `ETag` | Strong tag: SHA-256 of the exact response body, which already reflects the caller's scope |
+| `Last-Modified` | Newest `updated_at` among the visible provinces (collection) or the province's `updated_at` |
+| `Cache-Control` | `private, no-cache`: only the caller's own cache may store it, and must revalidate |
+| `Vary` | `Authorization` |
+
+`If-None-Match` uses weak comparison and accepts `*`; when it is present, `If-Modified-Since` is ignored. A 304 has no body but repeats the validators. `updated_at` is maintained by the database, so renaming a province changes both validators. `Last-Modified` does not move when a province is deleted or a reader's scope changes, but the ETag does, so clients should prefer `If-None-Match`.
 
 ### Query parameters
 
