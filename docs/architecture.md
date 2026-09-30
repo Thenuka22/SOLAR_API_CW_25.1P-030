@@ -16,7 +16,7 @@ The schema is built by numbered SQL migrations in `src/db/migrations/`, applied 
 | `solar_installations` | Substation required; `meter_id` required and unique ignoring case and surrounding spaces; address optional; `capacity_kw` greater than 0; `substation_id` cannot change once the installation has readings |
 | `generation_readings` | Installation required; `timestamptz` timestamp; one reading per installation and timestamp; power, energy, and voltage non-negative; UPDATE, DELETE, and TRUNCATE rejected by triggers |
 | `users` | Name required; email required, basic format, unique ignoring case; role `national`, `provincial`, or `district` with the matching [scope](domain-model.md#user-scope) |
-| `user_credentials`, `device_credentials`, `provisioners` | One credential per user or installation, deleted with it; provisioner username required and unique ignoring case and surrounding spaces; secrets stored only as scrypt hashes, any other value rejected; `changed_at` set by a trigger. See [Authentication](authentication.md#credential-storage) |
+| `user_credentials`, `device_credentials`, `provisioners` | One credential per user or installation, deleted with it; provisioner username required and unique ignoring case and surrounding spaces; secrets stored only as scrypt hashes, any other value rejected; `credential_version` and `changed_at` set by a trigger and renewed only when the hash changes. See [Authentication](authentication.md#credential-storage) |
 
 A parent row that still has children cannot be deleted. The reading column keeps the domain model's name, `timestamp`, so write it as `"timestamp"` in SQL.
 

@@ -40,12 +40,13 @@ Tokens are signed with HS256 using the `JWT_SECRET` environment variable (at lea
 | `aud` | `solar-generation-api` | same | same |
 | `sub` | User ID | Installation ID | Provisioner ID |
 | `principalType` | `staff` | `device` | `provisioner` |
+| `credentialVersion` | Current `credential_version` of the credential used | same | same |
 | `iat` | Issue time | same | same |
 | `exp` | `iat` + 1 hour | `iat` + 1 hour | `iat` + 15 minutes |
 
 Tokens carry no role, jurisdiction, or permission list. On each request the server loads the principal named by `sub` and `principalType`: a staff user's role and province or district come from the `users` row, and a device may write only to the installation in `sub`. Scope changes therefore apply at once, and a deleted principal's token stops working.
 
-A token is also rejected if its `iat` is earlier than the principal's credential `changed_at`, compared in whole seconds. Changing a password or rotating a device secret therefore invalidates earlier tokens.
+A token is also rejected if its `credentialVersion` differs from the stored `credential_version`. The database gives a credential a new random version whenever its hash changes, so changing a password or rotating a device secret invalidates every earlier token, including one issued in the same second. A time comparison such as `iat < changed_at` cannot guarantee that, because `iat` has whole-second precision.
 
 ## Credential storage
 
@@ -53,15 +54,15 @@ Credentials are security data, not domain attributes, so they live in their own 
 
 | Table | Key | Stores |
 | --- | --- | --- |
-| `user_credentials` | `user_id`, one per user | `password_hash`, `changed_at` |
-| `device_credentials` | `installation_id`, one per installation | `secret_hash`, `changed_at` |
-| `provisioners` | `id`; `username` unique ignoring case and surrounding spaces | `username`, `password_hash`, `changed_at` |
+| `user_credentials` | `user_id`, one per user | `password_hash`, `credential_version`, `changed_at` |
+| `device_credentials` | `installation_id`, one per installation | `secret_hash`, `credential_version`, `changed_at` |
+| `provisioners` | `id`; `username` unique ignoring case and surrounding spaces | `username`, `password_hash`, `credential_version`, `changed_at` |
 
 - Every secret is stored only as an scrypt hash in PHC string form: `$scrypt$ln=15,r=8,p=3$<salt>$<hash>`, with a 16-byte random salt and a 32-byte derived key, both base64 without padding. N = 2^15, r = 8, p = 3 is one of the [OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#scrypt) minimum settings; it needs about 32 MB per hash, less than N = 2^17 with p = 1. scrypt is built into Node, so no native package is needed.
-- The parameters are stored in each hash, so they can be raised later without invalidating existing hashes.
+- The parameters are stored in each hash, so they can be raised later without invalidating existing hashes. Verification rejects a stored hash that would need more than 64 MiB (128 x N x r bytes), more work than N x r x p = 2^20, or a salt or key longer than 64 bytes, so a bad row cannot exhaust the server. This allows every OWASP setting up to N = 2^16, r = 8, p = 2.
 - Secrets are Unicode-normalized (NFC) before hashing, so equivalent forms of the same characters verify alike.
 - The database rejects any value that is not in this hash format, so a plaintext secret cannot be stored by mistake.
-- `changed_at` is set by the database when a credential is created and whenever its hash changes.
+- `credential_version` (a random UUID) and `changed_at` are set by the database when a credential is created and whenever its hash changes; neither can be written directly. The version revokes tokens; `changed_at` is kept for auditing.
 - Deleting a user or installation deletes its credential. An installation with readings cannot be deleted, so its device credential stays with it.
 - Secrets and hashes never appear in API responses or logs.
 

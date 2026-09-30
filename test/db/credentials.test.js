@@ -71,13 +71,16 @@ describe('credential tables', { skip }, () => {
       'device_credentials.installation_id',
       'device_credentials.secret_hash',
       'device_credentials.changed_at',
+      'device_credentials.credential_version',
       'provisioners.id',
       'provisioners.username',
       'provisioners.password_hash',
       'provisioners.changed_at',
+      'provisioners.credential_version',
       'user_credentials.user_id',
       'user_credentials.password_hash',
       'user_credentials.changed_at',
+      'user_credentials.credential_version',
     ]);
     for (const r of rows.filter((row) => row.column_name.endsWith('_hash'))) {
       assert.equal(r.domain_name, 'scrypt_hash', `${r.table_name}.${r.column_name}`);
