@@ -20,6 +20,12 @@ npm run db:migrate
 
 The runner applies the numbered SQL files in `src/db/migrations/` in order, each in its own transaction, and records them in the `schema_migrations` table. Files that have already run are skipped, so a repeat run changes nothing. The command exits with an error if `DATABASE_URL` is not set.
 
+```sh
+npm run db:seed
+```
+
+The seed runner applies the SQL files in `src/db/seeds/` in order after the migrations have run. The seeds are repeatable: rows that already exist are left unchanged, so running the command again adds nothing.
+
 ## Deployment
 
 The API is deployed on [Render](https://render.com) as a Node web service, configured by `render.yaml`.
