@@ -74,6 +74,67 @@ async function issueTokenHandler(req, res) {
   res.json({ accessToken, tokenType: 'Bearer', expiresIn });
 }
 
+/**
+ * @openapi
+ * /solar/v1.0/issue-token:
+ *   post:
+ *     tags: [Authentication]
+ *     summary: Issue an access token
+ *     description: |
+ *       Exchanges a principal's credentials for a bearer token. `principalType` selects which
+ *       fields are required; any other field is rejected. Identifiers are matched ignoring case
+ *       and surrounding spaces.
+ *
+ *       A wrong secret, an unknown identifier, and a principal without a credential all get the
+ *       same 400 response (code 3001), with no `WWW-Authenticate` challenge because the
+ *       credentials are sent in the body.
+ *
+ *       Rate limits: 30 requests per client address and 5 failed sign-ins per identifier, each
+ *       per 15 minutes.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/TokenRequest'
+ *           examples:
+ *             staff:
+ *               value: { principalType: staff, email: reader@example.lk, password: a long staff password }
+ *             device:
+ *               value: { principalType: device, meterId: MTR-0001, deviceSecret: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA }
+ *             provisioner:
+ *               value: { principalType: provisioner, username: provisioner, password: a long provisioner password }
+ *     responses:
+ *       200:
+ *         description: Token issued.
+ *         headers:
+ *           Cache-Control:
+ *             description: '`no-store`'
+ *             schema: { type: string }
+ *           Pragma:
+ *             description: '`no-cache`'
+ *             schema: { type: string }
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/TokenResponse'
+ *       400:
+ *         description: Invalid input (1001, 2001), or credentials that are not valid (3001).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       406:
+ *         $ref: '#/components/responses/NotAcceptable'
+ *       413:
+ *         $ref: '#/components/responses/PayloadTooLarge'
+ *       415:
+ *         $ref: '#/components/responses/UnsupportedMediaType'
+ *       429:
+ *         $ref: '#/components/responses/TooManyRequests'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
+ */
 router
   .route('/issue-token')
   .post(tokenRequestsPerClient, requireJsonBody, validateTokenRequest, failedSignInsPerIdentifier, issueTokenHandler)

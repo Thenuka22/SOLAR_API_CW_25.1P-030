@@ -19,6 +19,50 @@ function scopeParams(principal) {
 // Authentication and the staff check run before any input is read or data is queried.
 router.use('/provinces', authenticate, requirePrincipal('staff'));
 
+/**
+ * @openapi
+ * /solar/v1.0/provinces:
+ *   get:
+ *     tags: [Provinces]
+ *     summary: List visible provinces
+ *     description: |
+ *       A national reader sees all provinces; a provincial reader only their province; a district
+ *       reader only their district's province. `count` is the total visible to the caller.
+ *       Results are in ID order. Validated by ETag only: no Last-Modified, and If-Modified-Since
+ *       is ignored. Only `offset` and `limit` are accepted.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/offset'
+ *       - $ref: '#/components/parameters/limit'
+ *       - $ref: '#/components/parameters/ifNoneMatch'
+ *     responses:
+ *       200:
+ *         description: A page of visible provinces.
+ *         headers:
+ *           ETag:
+ *             $ref: '#/components/headers/ETag'
+ *           Cache-Control:
+ *             $ref: '#/components/headers/CacheControl'
+ *           Vary:
+ *             $ref: '#/components/headers/Vary'
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProvinceCollection'
+ *       304:
+ *         $ref: '#/components/responses/NotModified'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       406:
+ *         $ref: '#/components/responses/NotAcceptable'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
+ */
 router
   .route('/provinces')
   .get(async (req, res) => {
@@ -42,6 +86,52 @@ router
   })
   .all(methodNotAllowed('GET', 'HEAD'));
 
+/**
+ * @openapi
+ * /solar/v1.0/provinces/{province-id}:
+ *   get:
+ *     tags: [Provinces]
+ *     summary: Get one province
+ *     description: |
+ *       A province outside the caller's jurisdiction returns the same 404 as a nonexistent one.
+ *       No query parameters are accepted.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/provinceId'
+ *       - $ref: '#/components/parameters/ifNoneMatch'
+ *       - $ref: '#/components/parameters/ifModifiedSince'
+ *     responses:
+ *       200:
+ *         description: The province.
+ *         headers:
+ *           ETag:
+ *             $ref: '#/components/headers/ETag'
+ *           Last-Modified:
+ *             $ref: '#/components/headers/LastModified'
+ *           Cache-Control:
+ *             $ref: '#/components/headers/CacheControl'
+ *           Vary:
+ *             $ref: '#/components/headers/Vary'
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Province'
+ *       304:
+ *         $ref: '#/components/responses/NotModified'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       406:
+ *         $ref: '#/components/responses/NotAcceptable'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
+ */
 router
   .route('/provinces/:provinceId')
   .get(async (req, res) => {

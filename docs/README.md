@@ -18,4 +18,4 @@ The database migrations for all six entities and for credentials, the repeatable
 
 1. Add a repeatable database test suite for the migrations and seed data before final submission.
 
-Add OpenAPI schemas in separate small increments. Define the detailed summary schema before coding that feature. After each commit, review its changes and test results before continuing.
+The OpenAPI document at `/api-docs` covers every implemented endpoint. Document each new endpoint there in the same commit (see [Architecture](architecture.md#what-exists-now)). Define the detailed summary schema before coding that feature. After each commit, review its changes and test results before continuing.
