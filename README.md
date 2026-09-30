@@ -10,6 +10,16 @@
 
 See the [documentation index](docs/README.md) for the domain model, endpoint responses and errors, WSO2 design rules, architecture, security, and testing notes. Domain features are still planned.
 
+## Database migrations
+
+Copy `.env.example` to `.env` and set `DATABASE_URL` to a PostgreSQL database. `.env` is ignored by Git.
+
+```sh
+npm run db:migrate
+```
+
+The runner applies the numbered SQL files in `src/db/migrations/` in order, each in its own transaction, and records them in the `schema_migrations` table. Files that have already run are skipped, so a repeat run changes nothing. The command exits with an error if `DATABASE_URL` is not set.
+
 ## Deployment
 
 The API is deployed on [Render](https://render.com) as a Node web service, configured by `render.yaml`.
