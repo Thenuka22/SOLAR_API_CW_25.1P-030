@@ -71,11 +71,11 @@ Combine regional filters with AND. Valid filters with no visible matches return 
 | Method | Path | Caller and input | Success | Errors |
 | --- | --- | --- | --- | --- |
 | POST | `/summarize-district-generation` | Reader; `districtId`, optional `date` in YYYY-MM-DD | 200, district generation summary | 400, 401, 403, 404, 406, 415 |
-| POST | `/issue-token` | Registered principal; credentials, not an existing bearer token | 200, access token, token type, expiry duration | 400, 401, 406, 415 |
+| POST | `/issue-token` | Registered principal; `principalType` and its credentials, not an existing bearer token | 200, `accessToken`, `tokenType`, `expiresIn` | 400, 401, 406, 415 |
 
 The summary date defaults to today in Asia/Colombo. Return latest known district power separately from energy for the requested date, with freshness and contributing/missing installation counts. Calculate energy from cumulative-meter differences, never by summing cumulative values. Missing boundary samples or counter anomalies make the energy result incomplete. Fix the detailed calculation and response schema with small numerical examples before implementing this endpoint.
 
-The summary is computed immediately, creates no persistent resource, and has no GET alias. It returns neither 201 nor 304. The token endpoint verifies credentials and derives permissions on the server; define its credential schema with authentication. Token responses use `Cache-Control: no-store`.
+The summary is computed immediately, creates no persistent resource, and has no GET alias. It returns neither 201 nor 304. The token endpoint verifies credentials and derives permissions on the server; its request bodies and token claims are defined in [Authentication](authentication.md). Token responses use `Cache-Control: no-store`.
 
 ## Response codes and headers
 
