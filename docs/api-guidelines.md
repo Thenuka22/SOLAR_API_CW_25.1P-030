@@ -21,7 +21,7 @@ Reference: *WSO2 REST API Design Guidelines*. Section numbers below refer to tha
 | 8-9 | Use meaningful headers and statuses | Location for creation, validators for reads, and [per-endpoint statuses](api-endpoints.md) |
 | 10.1 | Honour the requested response media type | Unsupported Accept gives 406; unsupported request-body type gives 415 |
 | 10.2-10.3 | Support filtering, sorting, and pagination | Time/jurisdiction filters, timestamp sorting, offset/limit, count/next/previous |
-| 10.4 | Let clients revalidate cached reads | ETag/Last-Modified; matching conditional GET returns 304 without a body |
+| 10.4 | Let clients revalidate cached reads | ETag on every domain GET, Last-Modified only where reliable; matching conditional GET returns 304 without a body |
 | 10.5 | Check write preconditions to detect conflicts | Conditional metadata changes reject stale validators with 412 |
 | 11 | Return useful, consistent client errors | Shared code/message/details structure |
 | 12 | Design permissions and protect access | Device ownership and reader jurisdiction checks over HTTPS |

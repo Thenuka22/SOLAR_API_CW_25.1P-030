@@ -10,7 +10,7 @@ The schema is built by numbered SQL migrations in `src/db/migrations/`, applied 
 
 | Table | Integrity rules |
 | --- | --- |
-| `provinces` | Name required; unique ignoring case and surrounding spaces; `updated_at` set by a trigger on insert and on any change |
+| `provinces` | Name required; unique ignoring case and surrounding spaces; `updated_at` set by a trigger on insert and on any change, always to a later whole second than before |
 | `districts` | Province required; name required and unique within its province, ignoring case and surrounding spaces |
 | `grid_substations` | District required; name required but not unique |
 | `solar_installations` | Substation required; `meter_id` required and unique ignoring case and surrounding spaces; address optional; `capacity_kw` greater than 0; `substation_id` cannot change once the installation has readings |

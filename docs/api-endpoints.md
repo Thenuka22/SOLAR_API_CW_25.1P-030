@@ -42,11 +42,15 @@ Each request is handled in this order: bearer authentication (401), principal ty
 | Header | Value |
 | --- | --- |
 | `ETag` | Strong tag: SHA-256 of the exact response body, which already reflects the caller's scope |
-| `Last-Modified` | Newest `updated_at` among the visible provinces (collection) or the province's `updated_at` |
+| `Last-Modified` | Single province only: its `updated_at`. Not sent for the collection |
 | `Cache-Control` | `private, no-cache`: only the caller's own cache may store it, and must revalidate |
 | `Vary` | `Authorization` |
 
-`If-None-Match` uses weak comparison and accepts `*`; when it is present, `If-Modified-Since` is ignored. A 304 has no body but repeats the validators. `updated_at` is maintained by the database, so renaming a province changes both validators. `Last-Modified` does not move when a province is deleted or a reader's scope changes, but the ETag does, so clients should prefer `If-None-Match`.
+`If-None-Match` uses weak comparison and accepts `*`; when it is present, `If-Modified-Since` is ignored. A 304 has no body but repeats the validators.
+
+The collection is validated by ETag only. Its content also changes when a reader's scope narrows, a province is deleted, or the page changes, and no row timestamp records those changes, so it has no reliable modification time. Without `Last-Modified`, `If-Modified-Since` is ignored (RFC 9110 section 13.1.3) and a 304 needs a matching ETag.
+
+A single province's body depends only on its row, so its `updated_at` is a reliable `Last-Modified`. The database sets it and moves it to a later whole second on every change, so two changes within one second, or a change committed after a response was built, never share the earlier version's `Last-Modified`. After rapid changes `updated_at` can be slightly ahead of the clock; `Last-Modified` is then omitted rather than sent in the future (RFC 9110 section 8.8.2.1).
 
 ### Query parameters
 
@@ -152,4 +156,4 @@ Every error response, including 404 for unknown paths, is JSON:
 
 Codes 1000-1099 cover general request and routing errors, 2000-2099 input validation, and 3000-3099 authentication and authorization. Domain errors get their own range when those features are implemented. JSON bodies are parsed before routing, so malformed JSON sent to an unknown path returns 400, not 404. The code catalogue is in `src/errors.js`.
 
-Domain GETs return ETag, Last-Modified, and private cache controls. Last-Modified uses HTTP-date in GMT, not a JSON timestamp. Composite validators change when relevant embedded data changes. If-None-Match takes precedence over If-Modified-Since; If-Match takes precedence over If-Unmodified-Since. Authenticate and check scope before evaluating response validators.
+Domain GETs return an ETag and private cache controls. They return Last-Modified only when the server has a reliable modification time for the whole representation, which scoped collections do not; a 304 must mean the representation has not changed. Last-Modified uses HTTP-date in GMT, not a JSON timestamp. Composite validators change when relevant embedded data changes. If-None-Match takes precedence over If-Modified-Since; If-Match takes precedence over If-Unmodified-Since. Authenticate and check scope before evaluating response validators.
