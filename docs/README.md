@@ -11,8 +11,12 @@
 
 Deployment settings stay in the [project README](../README.md#deployment). Domain endpoints and security are still planned; these notes do not claim they are live or tested.
 
-## Next coding step
+## Next coding steps
 
-Add shared JSON error handling: an error helper, malformed-JSON handling, unknown-route handling, and focused tests. Define the application error codes and detail shape in that increment. Preserve the existing root and Swagger routes. Suggested commit: `feat: add consistent JSON error handling`.
+The database migrations for provinces, districts, substations, installations, and readings are in place; see [Architecture](architecture.md#what-exists-now).
 
-Then add OpenAPI schemas and database migrations in separate small increments. Define detailed credential and summary schemas before coding those features. After each commit, review its changes and test results before continuing.
+1. Add the scoped users table, with database checks for the valid role and jurisdiction combinations.
+2. Seed provinces, districts, and substations, then solar installations, then one week of generation readings (see [Testing](testing.md)), as repeatable inserts.
+3. Start the API layer with shared JSON error handling: an error helper, malformed-JSON handling, unknown-route handling, and focused tests. Define the application error codes and detail shape in that increment. Preserve the existing root and Swagger routes.
+
+Add OpenAPI schemas in separate small increments. Define detailed credential and summary schemas before coding those features. After each commit, review its changes and test results before continuing.
