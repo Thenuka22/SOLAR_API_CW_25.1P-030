@@ -26,6 +26,8 @@ npm run db:seed
 
 The seed runner applies the SQL files in `src/db/seeds/` in order after the migrations have run. The seeds are repeatable: rows that already exist are left unchanged, so running the command again adds nothing.
 
+The seeds load 9 provinces, 25 districts, 35 grid substations, 200 installations, and one week of 15-minute readings for every installation (2026-09-01 00:00 to 2026-09-08 00:00 Sri Lanka time, end exclusive: 134,400 readings). Reading values are generated deterministically, so every run produces the same data. Readings are append-only and cannot be deleted, so use a fresh database to start again.
+
 ## Deployment
 
 The API is deployed on [Render](https://render.com) as a Node web service, configured by `render.yaml`.

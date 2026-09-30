@@ -6,17 +6,20 @@ The backend is one Express application with PostgreSQL for storage. Render runs 
 
 `src/server.js` loads environment variables and starts the listener. `src/app.js` exports the Express app, parses JSON, returns the root status response, and serves Swagger UI at `/api-docs`. The PostgreSQL pool configuration exists, but no route uses it yet.
 
-The schema is built by numbered SQL migrations in `src/db/migrations/`, applied with `npm run db:migrate` (see the [project README](../README.md#database-migrations)). They create tables for five of the [domain model](domain-model.md) entities, with UUID primary keys and these rules enforced by PostgreSQL:
+The schema is built by numbered SQL migrations in `src/db/migrations/`, applied with `npm run db:migrate` (see the [project README](../README.md#database-migrations)). They create tables for the six [domain model](domain-model.md) entities, with UUID primary keys and these rules enforced by PostgreSQL:
 
 | Table | Integrity rules |
 | --- | --- |
 | `provinces` | Name required; unique ignoring case and surrounding spaces |
 | `districts` | Province required; name required and unique within its province, ignoring case and surrounding spaces |
 | `grid_substations` | District required; name required but not unique |
-| `solar_installations` | Substation required; `meter_id` required and unique ignoring case and surrounding spaces; address optional; `capacity_kw` greater than 0 |
+| `solar_installations` | Substation required; `meter_id` required and unique ignoring case and surrounding spaces; address optional; `capacity_kw` greater than 0; `substation_id` cannot change once the installation has readings |
 | `generation_readings` | Installation required; `timestamptz` timestamp; one reading per installation and timestamp; power, energy, and voltage non-negative; UPDATE, DELETE, and TRUNCATE rejected by triggers |
+| `users` | Name required; email required, basic format, unique ignoring case; role `national`, `provincial`, or `district` with the matching [scope](domain-model.md#user-scope) |
 
-A parent row that still has children cannot be deleted. The reading column keeps the domain model's name, `timestamp`, so write it as `"timestamp"` in SQL. Users, seed data, authentication, and domain routes are not implemented yet.
+A parent row that still has children cannot be deleted. The reading column keeps the domain model's name, `timestamp`, so write it as `"timestamp"` in SQL.
+
+Repeatable seed files in `src/db/seeds/`, applied with `npm run db:seed`, load the demonstration data: 9 provinces, 25 districts, 35 substations, 200 installations, and one week of readings (134,400). Authentication and domain routes are not implemented yet.
 
 ## Planned request flow
 
