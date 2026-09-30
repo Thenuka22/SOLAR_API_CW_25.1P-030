@@ -28,6 +28,18 @@ The seed runner applies the SQL files in `src/db/seeds/` in order after the migr
 
 The seeds load 9 provinces, 25 districts, 35 grid substations, 200 installations, and one week of 15-minute readings for every installation (2026-09-01 00:00 to 2026-09-08 00:00 Sri Lanka time, end exclusive: 134,400 readings). Reading values are generated deterministically, so every run produces the same data. Readings are append-only and cannot be deleted, so use a fresh database to start again.
 
+## Credentials
+
+Staff passwords, provisioner accounts, and device secrets are managed from the command line, never through the API:
+
+```sh
+npm run credentials -- staff-password <email>
+npm run credentials -- provisioner-password <username>
+npm run credentials -- device-secret <meter-id>
+```
+
+Passwords are typed at a hidden prompt (or piped on standard input), never passed as arguments. A new device secret is printed once. See [Authentication](docs/authentication.md#operator-command).
+
 ## Tests
 
 ```sh
