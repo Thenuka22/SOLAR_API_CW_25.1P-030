@@ -1,6 +1,6 @@
 # API Endpoints
 
-Base path: `/solar/v1.0`. These are planned endpoints. At present, only `/` and Swagger UI at `/api-docs` are implemented.
+Base path: `/solar/v1.0`. These are planned endpoints. At present, only `/` and Swagger UI at `/api-docs` are implemented, together with the shared [error format](#error-format).
 
 All path IDs are UUIDs. JSON uses camelCase: for example, the model's `power_kw` becomes `powerKw`. Requests and responses use `application/json`.
 
@@ -92,11 +92,38 @@ The summary is computed immediately, creates no persistent resource, and has no 
 | 406 | Accept does not permit the supported JSON response |
 | 409 | Uniqueness conflict or operation incompatible with retained history |
 | 412 | Supplied write condition does not hold |
-| 415 | POST/PUT body has an unsupported media type |
+| 413 | Request body larger than the 100 KB JSON limit |
+| 415 | POST/PUT body has an unsupported media type, character set, or content encoding |
 | 500 | Unexpected server failure; generic message without internal details |
 
 The endpoint tables list expected client errors for supported methods. A different method on a known path can return 405; an unknown path returns 404. Server failures can affect any endpoint and must not expose stack traces or credentials.
 
-Errors use `{ code, message, details }`: a stable numeric application code, a readable explanation, and supporting detail. The application code is separate from the HTTP status. Define the shared error-code catalogue when implementing error handling.
+### Error format
+
+Every error response, including 404 for unknown paths, is JSON:
+
+```json
+{
+  "code": 1001,
+  "message": "The request body is not valid JSON.",
+  "details": [
+    { "location": "body", "field": null, "issue": "Unexpected end of JSON input" }
+  ]
+}
+```
+
+`code` is a stable numeric application code, separate from the HTTP status. `message` is a readable explanation. `details` is always an array, empty when there is nothing more to say. Each item has `location` (`body`, `path`, `query`, `header`, `method`, or `request`), `field` (the parameter or property name, or null), and `issue`.
+
+| Code | HTTP | Meaning |
+| --- | --- | --- |
+| 1000 | 500 | Unexpected server failure; the real error is logged, not returned |
+| 1001 | 400 | Malformed JSON body, or JSON that is not an object or array |
+| 1002 | 400 | Other unreadable request, such as a badly encoded path parameter |
+| 1003 | 413 | Body larger than the JSON limit |
+| 1004 | 415 | Unsupported character set or content encoding for a JSON body |
+| 1005 | 404 | No endpoint matches the path |
+| 1006 | 405 | Known path, unsupported method; the response includes Allow |
+
+Codes 1000-1099 cover general request and routing errors. Validation, authentication, and domain errors get their own codes when those features are implemented. JSON bodies are parsed before routing, so malformed JSON sent to an unknown path returns 400, not 404. The code catalogue is in `src/errors.js`.
 
 Domain GETs return ETag, Last-Modified, and private cache controls. Last-Modified uses HTTP-date in GMT, not a JSON timestamp. Composite validators change when relevant embedded data changes. If-None-Match takes precedence over If-Modified-Since; If-Match takes precedence over If-Unmodified-Since. Authenticate and check scope before evaluating response validators.

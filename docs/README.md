@@ -13,8 +13,8 @@ Deployment settings stay in the [project README](../README.md#deployment). Domai
 
 ## Next coding steps
 
-The database migrations for all six entities and the repeatable demonstration seed data are in place; see [Architecture](architecture.md#what-exists-now).
+The database migrations for all six entities, the repeatable demonstration seed data, and the shared JSON error format are in place; see [Architecture](architecture.md#what-exists-now).
 
-1. Start the API layer with shared JSON error handling: an error helper, malformed-JSON handling, unknown-route handling, and focused tests. Define the application error codes and detail shape in that increment. Preserve the existing root and Swagger routes.
+1. Add a repeatable database test suite for the migrations and seed data before final submission.
 
 Add OpenAPI schemas in separate small increments. Define detailed credential and summary schemas before coding those features. After each commit, review its changes and test results before continuing.
