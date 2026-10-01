@@ -27,6 +27,8 @@ const definition = {
     { name: 'Status' },
     { name: 'Authentication' },
     { name: 'Provinces', description: 'Staff readers only; results are limited to the reader\'s jurisdiction.' },
+    { name: 'Districts', description: 'Staff readers only; results are limited to the reader\'s jurisdiction.' },
+    { name: 'Grid substations', description: 'Staff readers within their jurisdiction; provisioners may read an individual substation.' },
   ],
   paths: {
     '/': {
@@ -178,6 +180,27 @@ const definition = {
           results: { type: 'array', items: { $ref: '#/components/schemas/District' } },
         },
       },
+      GridSubstation: {
+        type: 'object',
+        required: ['id', 'districtId', 'name'],
+        additionalProperties: false,
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          districtId: { type: 'string', format: 'uuid' },
+          name: { type: 'string', example: 'Kolonnawa' },
+        },
+      },
+      GridSubstationCollection: {
+        type: 'object',
+        required: ['count', 'next', 'previous', 'results'],
+        additionalProperties: false,
+        properties: {
+          count: { type: 'integer', minimum: 0, description: 'Total visible to the caller, not just this page.' },
+          next: { type: 'string', nullable: true, example: '/solar/v1.0/districts/{district-id}/grid-substations?offset=50&limit=50' },
+          previous: { type: 'string', nullable: true },
+          results: { type: 'array', items: { $ref: '#/components/schemas/GridSubstation' } },
+        },
+      },
     },
     parameters: {
       offset: {
@@ -200,6 +223,12 @@ const definition = {
       },
       districtId: {
         name: 'district-id',
+        in: 'path',
+        required: true,
+        schema: { type: 'string', format: 'uuid' },
+      },
+      substationId: {
+        name: 'substation-id',
         in: 'path',
         required: true,
         schema: { type: 'string', format: 'uuid' },

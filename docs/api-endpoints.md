@@ -1,6 +1,6 @@
 # API Endpoints
 
-Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, and `GET /districts/{district-id}` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
+Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, `GET /districts/{district-id}`, `GET /districts/{district-id}/grid-substations`, and `GET /grid-substations/{substation-id}` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
 
 All path IDs are UUIDs. JSON uses camelCase: for example, the model's `power_kw` becomes `powerKw`. Requests and responses use `application/json`.
 
@@ -57,6 +57,10 @@ A single province's body depends only on its row, so its `updated_at` is a relia
 Staff readers only, in the same order of checks as provinces. A national reader sees every district, a provincial reader the districts of their province, and a district reader only their own district, so their collection under their province has a count of 1 and a sibling district returns 404. A province outside the reader's scope returns 404 for its district collection; a visible province with no districts returns an empty page.
 
 A district is `{ "id": "<uuid>", "provinceId": "<uuid>", "name": "Colombo" }`. Headers and validators are as for provinces: the collection has an ETag only, and a single district also has `Last-Modified` from its `updated_at`, which the database maintains as for provinces.
+
+### Grid substations (implemented)
+
+A substation is `{ "id": "<uuid>", "districtId": "<uuid>", "name": "Kolonnawa" }`. Staff readers see every substation of a district in their scope; a district outside it returns 404 for its collection, and a substation outside it returns 404. The provisioner may read any individual substation, because it registers installations there, but gets 403 for the district's collection; a device gets 403 for both. Validators are as for districts.
 
 ### Query parameters
 

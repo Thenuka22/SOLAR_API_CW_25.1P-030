@@ -7,6 +7,12 @@ function readerScope(principal) {
   return [principal.role === 'national', principal.provinceId ?? null, principal.districtId ?? null];
 }
 
+// Provisioners are not limited to a jurisdiction: they manage installations anywhere, so they
+// may read every substation and installation's metadata (never readings).
+function metadataScope(principal) {
+  return principal.type === 'provisioner' ? [true, null, null] : readerScope(principal);
+}
+
 // The province row aliased p is visible.
 const PROVINCE_VISIBLE = '($1 OR p.id = $2)';
 
@@ -14,4 +20,4 @@ const PROVINCE_VISIBLE = '($1 OR p.id = $2)';
 // their province for a provincial reader, and only their own district for a district reader.
 const DISTRICT_VISIBLE = '($1 OR (d.province_id = $2 AND ($3::uuid IS NULL OR d.id = $3)))';
 
-module.exports = { readerScope, PROVINCE_VISIBLE, DISTRICT_VISIBLE };
+module.exports = { readerScope, metadataScope, PROVINCE_VISIBLE, DISTRICT_VISIBLE };

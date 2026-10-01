@@ -23,6 +23,12 @@ const OPERATIONS = {
   '/solar/v1.0/districts/{district-id}': {
     get: ['200', '304', '400', '401', '403', '404', '406', '500'],
   },
+  '/solar/v1.0/districts/{district-id}/grid-substations': {
+    get: ['200', '304', '400', '401', '403', '404', '406', '500'],
+  },
+  '/solar/v1.0/grid-substations/{substation-id}': {
+    get: ['200', '304', '400', '401', '403', '404', '406', '500'],
+  },
 };
 
 describe('OpenAPI contract for implemented endpoints', () => {
@@ -140,6 +146,10 @@ describe('live responses match their documented operation', {
     const districts = await read(`/provinces/${fixture.westernId}/districts`, provincial);
     const districtsTag = districts.headers.get('etag');
     const { id: colomboId } = (await fixture.db.query("SELECT id FROM districts WHERE name = 'Colombo'")).rows[0];
+    const { id: galleSubstationId } = (await fixture.db.query(
+      "SELECT s.id FROM grid_substations s JOIN districts d ON d.id = s.district_id WHERE d.name = 'Galle' LIMIT 1",
+    )).rows[0];
+    const provisioner = fixture.token('provisioner', fixture.provisioner);
     const cases = [
       ['/', 'get', await fetch(`${fixture.url}/`)],
       ['/solar/v1.0/issue-token', 'post', await post({
@@ -163,6 +173,11 @@ describe('live responses match their documented operation', {
       ['/solar/v1.0/provinces/{province-id}/districts', 'get', await read(`/provinces/${fixture.southernId}/districts`, provincial)],
       ['/solar/v1.0/districts/{district-id}', 'get', await read(`/districts/${colomboId}`, provincial)],
       ['/solar/v1.0/districts/{district-id}', 'get', await read(`/districts/${colomboId}`, device)],
+      ['/solar/v1.0/districts/{district-id}/grid-substations', 'get', await read(`/districts/${colomboId}/grid-substations`, provincial)],
+      ['/solar/v1.0/districts/{district-id}/grid-substations', 'get', await read(`/districts/${colomboId}/grid-substations?limit=x`, provincial)],
+      ['/solar/v1.0/grid-substations/{substation-id}', 'get', await read(`/grid-substations/${galleSubstationId}`, provisioner)],
+      ['/solar/v1.0/grid-substations/{substation-id}', 'get', await read(`/grid-substations/${galleSubstationId}`, provincial)],
+      ['/solar/v1.0/grid-substations/{substation-id}', 'get', await read(`/grid-substations/${galleSubstationId}`)],
     ];
 
     const ajv = new Ajv({ strict: false, validateFormats: false });
