@@ -1,8 +1,8 @@
 // Application error catalogue. Every error response has the body { code, message, details }:
 // `code` is a stable application code, separate from the HTTP status, and `details` is a list
 // of { location, field, issue } items (empty when there is nothing more to say).
-// 1000-1099 are general request and routing errors, 2000-2099 input validation, and
-// 3000-3099 authentication and authorization.
+// 1000-1099 are general request and routing errors, 2000-2099 input validation,
+// 3000-3099 authentication and authorization, and 4000-4099 conflicts with stored data.
 const ERRORS = {
   INTERNAL_ERROR: { code: 1000, status: 500, message: 'An unexpected error occurred.' },
   MALFORMED_JSON: { code: 1001, status: 400, message: 'The request body is not valid JSON.' },
@@ -26,6 +26,7 @@ const ERRORS = {
   AUTHENTICATION_REQUIRED: { code: 3002, status: 401, message: 'A bearer token is required.' },
   INVALID_TOKEN: { code: 3003, status: 401, message: 'The bearer token is not valid.' },
   FORBIDDEN: { code: 3004, status: 403, message: 'You do not have permission for this operation.' },
+  METER_ID_TAKEN: { code: 4001, status: 409, message: 'Another installation already has this meter ID.' },
 };
 
 class ApiError extends Error {

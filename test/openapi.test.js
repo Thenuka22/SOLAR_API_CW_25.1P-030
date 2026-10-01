@@ -31,6 +31,7 @@ const OPERATIONS = {
   },
   '/solar/v1.0/grid-substations/{substation-id}/installations': {
     get: ['200', '304', '400', '401', '403', '404', '406', '500'],
+    post: ['201', '400', '401', '403', '404', '406', '409', '413', '415', '500'],
   },
   '/solar/v1.0/installations/{installation-id}': {
     get: ['200', '304', '400', '401', '403', '404', '406', '500'],
@@ -147,6 +148,11 @@ describe('live responses match their documented operation', {
     const read = (route, token, headers = {}) => fetch(`${base}${route}`, {
       headers: token ? { Authorization: `Bearer ${token}`, ...headers } : headers,
     });
+    const send = (method, route, token, body) => fetch(`${base}${route}`, {
+      method,
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
     const list = await read('/provinces', national);
     const tag = list.headers.get('etag');
     const districts = await read(`/provinces/${fixture.westernId}/districts`, provincial);
@@ -190,6 +196,12 @@ describe('live responses match their documented operation', {
         await read(`/grid-substations/${galleSubstationId}/installations`, provincial)],
       ['/solar/v1.0/installations/{installation-id}', 'get', await read(`/installations/${fixture.device.id}`, provincial)],
       ['/solar/v1.0/installations/{installation-id}', 'get', await read(`/installations/${fixture.device.id}`, device)],
+      ['/solar/v1.0/grid-substations/{substation-id}/installations', 'post',
+        await send('POST', `/grid-substations/${galleSubstationId}/installations`, provisioner, { meterId: 'OPENAPI-TEST-1', capacityKw: 4.4 })],
+      ['/solar/v1.0/grid-substations/{substation-id}/installations', 'post',
+        await send('POST', `/grid-substations/${galleSubstationId}/installations`, provisioner, { meterId: 'OPENAPI-TEST-2' })],
+      ['/solar/v1.0/grid-substations/{substation-id}/installations', 'post',
+        await send('POST', `/grid-substations/${galleSubstationId}/installations`, national, { meterId: 'OPENAPI-TEST-3', capacityKw: 1 })],
     ];
 
     const ajv = new Ajv({ strict: false, validateFormats: false });

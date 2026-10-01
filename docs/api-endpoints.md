@@ -1,6 +1,6 @@
 # API Endpoints
 
-Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, `GET /districts/{district-id}`, `GET /districts/{district-id}/grid-substations`, `GET /grid-substations/{substation-id}`, `GET /grid-substations/{substation-id}/installations`, and `GET /installations/{installation-id}` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
+Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, `GET /districts/{district-id}`, `GET /districts/{district-id}/grid-substations`, `GET /grid-substations/{substation-id}`, `GET` and `POST /grid-substations/{substation-id}/installations`, and `GET /installations/{installation-id}` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
 
 All path IDs are UUIDs. JSON uses camelCase: for example, the model's `power_kw` becomes `powerKw`. Requests and responses use `application/json`.
 
@@ -65,6 +65,8 @@ A substation is `{ "id": "<uuid>", "districtId": "<uuid>", "name": "Kolonnawa" }
 ### Installations (implemented)
 
 An installation is `{ "id": "<uuid>", "substationId": "<uuid>", "meterId": "MTR-0001", "address": "<text or null>", "capacityKw": 5.5 }`, with metadata only; readings never appear in these responses. Staff readers see installations at substations in their scope, and the provisioner may list and read any installation. A device gets 403, even for its own installation. Validators are as for districts; the single installation's `Last-Modified` comes from its `updated_at`, which a new reading does not change.
+
+The provisioner creates an installation with `POST /grid-substations/{substation-id}/installations`. `meterId` is stored without surrounding spaces and may be at most 254 characters, the token endpoint's identifier limit; `capacityKw` is a JSON number above 0 and at most 9,999,999.999 with at most three decimal places, matching the stored precision, so it is never rounded silently. `id` and `substationId` in the body are rejected as read-only. A duplicate meter ID returns 409 (code 4001), also when two requests race, because the unique index decides.
 
 ### Query parameters
 
@@ -167,7 +169,8 @@ Every error response, including 404 for unknown paths, is JSON:
 | 3002 | 401 | No bearer token was sent |
 | 3003 | 401 | The bearer token is invalid, expired, or revoked |
 | 3004 | 403 | The authenticated principal type may not use this operation |
+| 4001 | 409 | Another installation already has this meter ID |
 
-Codes 1000-1099 cover general request and routing errors, 2000-2099 input validation, and 3000-3099 authentication and authorization. Domain errors get their own range when those features are implemented. JSON bodies are parsed before routing, so malformed JSON sent to an unknown path returns 400, not 404. The code catalogue is in `src/errors.js`.
+Codes 1000-1099 cover general request and routing errors, 2000-2099 input validation, 3000-3099 authentication and authorization, and 4000-4099 conflicts with stored data. JSON bodies are parsed before routing, so malformed JSON sent to an unknown path returns 400, not 404. The code catalogue is in `src/errors.js`.
 
 Domain GETs return an ETag and private cache controls. They return Last-Modified only when the server has a reliable modification time for the whole representation, which scoped collections do not; a 304 must mean the representation has not changed. Last-Modified uses HTTP-date in GMT, not a JSON timestamp. Composite validators change when relevant embedded data changes. If-None-Match takes precedence over If-Modified-Since; If-Match takes precedence over If-Unmodified-Since. Authenticate and check scope before evaluating response validators.

@@ -1,8 +1,9 @@
 const express = require('express');
 const pool = require('../config/db');
-const { ERRORS, ApiError } = require('../errors');
+const { ERRORS, ApiError, detail } = require('../errors');
 const { authenticate, requirePrincipal } = require('../middleware/authenticate');
 const { methodNotAllowed } = require('../middleware/errors');
+const { requireJsonBody } = require('../middleware/http');
 const { checkQueryNames, parsePage, pageLinks, requireUuid } = require('../http/query');
 const { sendCacheableJson, lastModifiedFrom } = require('../http/conditional');
 const { metadataScope, DISTRICT_VISIBLE } = require('../auth/scope');
@@ -14,6 +15,47 @@ const router = express.Router();
 const INSTALLATION_JSON = `json_build_object(
   'id', i.id, 'substationId', i.substation_id, 'meterId', i.meter_id,
   'address', i.address, 'capacityKw', i.capacity_kw)`;
+
+// meterId is also the device's sign-in identifier, which the token endpoint accepts up to 254
+// characters, so a longer one could never sign in.
+const MAX_METER_ID_LENGTH = 254;
+// capacity_kw is numeric(10, 3): below 10,000,000 with at most three decimal places.
+const MAX_CAPACITY_KW = 9999999.999;
+
+// Validates the writable installation fields and reports every problem at once (400).
+// Returns the values to store: meterId without surrounding spaces, address null when omitted.
+function validateInstallationBody(body, allowed) {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    throw new ApiError(ERRORS.VALIDATION_FAILED, { details: [detail('body', null, 'The body must be a JSON object.')] });
+  }
+  const problems = Object.keys(body)
+    .filter((field) => !allowed.includes(field))
+    .map((field) => detail('body', field, 'Unknown or read-only field.'));
+
+  const { meterId, address = null, capacityKw } = body;
+  if (typeof meterId !== 'string' || meterId.trim() === '' || meterId.trim().length > MAX_METER_ID_LENGTH) {
+    problems.push(detail('body', 'meterId', `meterId must be a non-blank string of at most ${MAX_METER_ID_LENGTH} characters.`));
+  }
+  if (address !== null && (typeof address !== 'string' || address.trim() === '')) {
+    problems.push(detail('body', 'address', 'address must be a non-blank string or null.'));
+  }
+  // toFixed(3) leaves a number with at most three decimal places unchanged.
+  if (typeof capacityKw !== 'number' || !(capacityKw > 0 && capacityKw <= MAX_CAPACITY_KW)
+      || Number(capacityKw.toFixed(3)) !== capacityKw) {
+    problems.push(detail('body', 'capacityKw',
+      `capacityKw must be a number greater than 0 and at most ${MAX_CAPACITY_KW}, with at most 3 decimal places.`));
+  }
+  if (problems.length > 0) throw new ApiError(ERRORS.VALIDATION_FAILED, { details: problems });
+  return { meterId: meterId.trim(), address, capacityKw };
+}
+
+// 409 for a unique violation on the meter ID, which can also come from a concurrent request.
+function meterIdConflict(err) {
+  if (err.code === '23505' && err.constraint === 'solar_installations_meter_id_normalized_key') {
+    return new ApiError(ERRORS.METER_ID_TAKEN, { details: [detail('body', 'meterId', 'This meter ID is already registered.')] });
+  }
+  return err;
+}
 
 // Authentication runs before any input is read or data is queried; each route checks the
 // principal type.
@@ -67,6 +109,53 @@ router.use(['/grid-substations/:substationId/installations', '/installations'], 
  *         $ref: '#/components/responses/NotAcceptable'
  *       500:
  *         $ref: '#/components/responses/InternalError'
+ *   post:
+ *     tags: [Installations]
+ *     summary: Register an installation at a substation
+ *     description: |
+ *       Provisioner only. The substation comes from the path and the server generates the ID, so
+ *       neither may appear in the body; any other unknown field is also rejected. `address` may be
+ *       omitted or null. Surrounding spaces are removed from `meterId`, and a meter ID already
+ *       registered, ignoring case and surrounding spaces, returns 409. The device's secret is
+ *       created afterwards with the operator command, not through the API.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/substationId'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/InstallationCreate'
+ *     responses:
+ *       201:
+ *         description: Installation created.
+ *         headers:
+ *           Location:
+ *             $ref: '#/components/headers/Location'
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Installation'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       406:
+ *         $ref: '#/components/responses/NotAcceptable'
+ *       409:
+ *         $ref: '#/components/responses/Conflict'
+ *       413:
+ *         $ref: '#/components/responses/PayloadTooLarge'
+ *       415:
+ *         $ref: '#/components/responses/UnsupportedMediaType'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
  */
 router
   .route('/grid-substations/:substationId/installations')
@@ -96,7 +185,28 @@ router
     if (!found) throw new ApiError(ERRORS.RESOURCE_NOT_FOUND);
     sendCacheableJson(req, res, { count, ...pageLinks(req, page, count), results });
   })
-  .all(methodNotAllowed('GET', 'HEAD'));
+  .post(requirePrincipal('provisioner'), requireJsonBody, async (req, res) => {
+    checkQueryNames(req, []);
+    const substationId = requireUuid(req.params.substationId, 'substation-id');
+    const values = validateInstallationBody(req.body, ['meterId', 'address', 'capacityKw']);
+    // The parent comes from the path and the ID from the database. Selecting the substation in
+    // the INSERT gives no row, and so a 404, when it does not exist.
+    let rows;
+    try {
+      ({ rows } = await pool.query(
+        `INSERT INTO solar_installations AS i (substation_id, meter_id, address, capacity_kw)
+         SELECT id, $2, $3, $4 FROM grid_substations WHERE id = $1
+         RETURNING ${INSTALLATION_JSON} AS installation`,
+        [substationId, values.meterId, values.address, values.capacityKw],
+      ));
+    } catch (err) {
+      throw meterIdConflict(err);
+    }
+    if (rows.length === 0) throw new ApiError(ERRORS.RESOURCE_NOT_FOUND);
+    const { installation } = rows[0];
+    res.status(201).location(`${req.baseUrl}/installations/${installation.id}`).json(installation);
+  })
+  .all(methodNotAllowed('GET', 'HEAD', 'POST'));
 
 /**
  * @openapi

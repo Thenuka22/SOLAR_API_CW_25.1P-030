@@ -214,6 +214,16 @@ const definition = {
           capacityKw: { type: 'number', minimum: 0.001, description: 'Rated capacity in kW, greater than 0, at most 3 decimal places.', example: 5.5 },
         },
       },
+      InstallationCreate: {
+        type: 'object',
+        required: ['meterId', 'capacityKw'],
+        additionalProperties: false,
+        properties: {
+          meterId: { type: 'string', minLength: 1, maxLength: 254, example: 'MTR-0201' },
+          address: { type: 'string', nullable: true, minLength: 1, description: 'Optional; omitted means null.', example: 'No. 7, Lake Road, Kolonnawa' },
+          capacityKw: { type: 'number', minimum: 0.001, maximum: 9999999.999, description: 'Rated capacity in kW, greater than 0, at most 3 decimal places.', example: 5.5 },
+        },
+      },
       InstallationCollection: {
         type: 'object',
         required: ['count', 'next', 'previous', 'results'],
@@ -281,6 +291,7 @@ const definition = {
       LastModified: { description: 'HTTP-date; omitted while the modification time is ahead of the clock.', schema: { type: 'string' } },
       CacheControl: { description: '`private, no-cache` on reads; `no-store` on tokens.', schema: { type: 'string' } },
       Vary: { description: '`Authorization`', schema: { type: 'string' } },
+      Location: { description: 'Path-absolute URL of the created resource.', schema: { type: 'string' } },
       RetryAfter: { description: 'Seconds until another request is allowed.', schema: { type: 'integer' } },
       RateLimit: { description: 'Remaining requests and reset time (IETF RateLimit header draft 7).', schema: { type: 'string' } },
       WWWAuthenticate: { description: 'Bearer challenge; `error="invalid_token"` when a token was sent.', schema: { type: 'string' } },
@@ -300,6 +311,7 @@ const definition = {
       }),
       Forbidden: error('The authenticated principal type may not use this operation (3004).'),
       NotFound: error('Missing, or outside the caller\'s jurisdiction (1005). Both give the same response.'),
+      Conflict: error('The request conflicts with stored data, such as a meter ID that is already registered (4001).'),
       NotAcceptable: error('The Accept header does not allow application/json (1007).'),
       UnsupportedMediaType: error('The body is not application/json (1008), or uses an unsupported charset or content encoding (1004).'),
       PayloadTooLarge: error('The body is larger than 100 KB (1003).'),
