@@ -2,10 +2,10 @@ require('dotenv').config({ quiet: true });
 
 const { randomUUID } = require('node:crypto');
 const { Client } = require('pg');
-const app = require('../src/app');
-const pool = require('../src/config/db');
-const { hashSecret, generateDeviceSecret } = require('../src/auth/credentialHash');
-const { issueToken } = require('../src/auth/tokens');
+const app = require('../../src/app');
+const pool = require('../../src/config/db');
+const { hashSecret, generateDeviceSecret } = require('../../src/auth/credentialHash');
+const { issueToken } = require('../../src/auth/tokens');
 
 const PASSWORD = 'a sufficiently long test password';
 const TEST_JWT_SECRET = 'test-only-jwt-secret-with-at-least-32-random-looking-bytes';

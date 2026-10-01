@@ -9,7 +9,7 @@
     "db:migrate": "node src/db/migrate.js",
     "db:seed": "node src/db/seed.js",
     "credentials": "node src/cli/credentials.js",
-    "test": "node --test"
+    "test": "node --test \"test/**/*.test.js\""
   },
   "author": "I.T Kannangara",
   "license": "ISC",

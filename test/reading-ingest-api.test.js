@@ -3,7 +3,7 @@ require('dotenv').config({ quiet: true });
 const { describe, test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const { hashSecret, generateDeviceSecret } = require('../src/auth/credentialHash');
-const { startApiFixture } = require('../test_support/apiFixture');
+const { startApiFixture } = require('./helpers/apiFixture');
 
 const skip = process.env.DATABASE_URL ? false : 'DATABASE_URL is not set';
 const MISSING = '00000000-0000-4000-8000-000000000000';

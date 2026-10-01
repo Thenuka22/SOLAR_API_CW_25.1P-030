@@ -4,7 +4,7 @@ const { describe, test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const jwt = require('jsonwebtoken');
 const { hashSecret } = require('../src/auth/credentialHash');
-const { startApiFixture } = require('../test_support/apiFixture');
+const { startApiFixture } = require('./helpers/apiFixture');
 
 const skip = process.env.DATABASE_URL ? false : 'DATABASE_URL is not set';
 // The scope claim each principal type is granted, written out here independently of the code.

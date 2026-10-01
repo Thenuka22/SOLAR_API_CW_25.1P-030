@@ -8,7 +8,7 @@ const Ajv = require('ajv');
 const SwaggerParser = require('@apidevtools/swagger-parser');
 const app = require('../src/app');
 const spec = require('../src/config/swagger');
-const { startApiFixture } = require('../test_support/apiFixture');
+const { startApiFixture } = require('./helpers/apiFixture');
 
 const MISSING_ID = '00000000-0000-4000-8000-000000000000';
 
