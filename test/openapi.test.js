@@ -17,6 +17,12 @@ const OPERATIONS = {
   '/solar/v1.0/provinces/{province-id}': {
     get: ['200', '304', '400', '401', '403', '404', '406', '500'],
   },
+  '/solar/v1.0/provinces/{province-id}/districts': {
+    get: ['200', '304', '400', '401', '403', '404', '406', '500'],
+  },
+  '/solar/v1.0/districts/{district-id}': {
+    get: ['200', '304', '400', '401', '403', '404', '406', '500'],
+  },
 };
 
 describe('OpenAPI contract for implemented endpoints', () => {
@@ -131,6 +137,9 @@ describe('live responses match their documented operation', {
     });
     const list = await read('/provinces', national);
     const tag = list.headers.get('etag');
+    const districts = await read(`/provinces/${fixture.westernId}/districts`, provincial);
+    const districtsTag = districts.headers.get('etag');
+    const { id: colomboId } = (await fixture.db.query("SELECT id FROM districts WHERE name = 'Colombo'")).rows[0];
     const cases = [
       ['/', 'get', await fetch(`${fixture.url}/`)],
       ['/solar/v1.0/issue-token', 'post', await post({
@@ -148,6 +157,12 @@ describe('live responses match their documented operation', {
       ['/solar/v1.0/provinces/{province-id}', 'get', await read(`/provinces/${fixture.westernId}`, provincial)],
       ['/solar/v1.0/provinces/{province-id}', 'get', await read(`/provinces/${fixture.southernId}`, provincial)],
       ['/solar/v1.0/provinces/{province-id}', 'get', await read('/provinces/not-a-uuid', provincial)],
+      ['/solar/v1.0/provinces/{province-id}/districts', 'get', districts],
+      ['/solar/v1.0/provinces/{province-id}/districts', 'get',
+        await read(`/provinces/${fixture.westernId}/districts`, provincial, { 'If-None-Match': districtsTag })],
+      ['/solar/v1.0/provinces/{province-id}/districts', 'get', await read(`/provinces/${fixture.southernId}/districts`, provincial)],
+      ['/solar/v1.0/districts/{district-id}', 'get', await read(`/districts/${colomboId}`, provincial)],
+      ['/solar/v1.0/districts/{district-id}', 'get', await read(`/districts/${colomboId}`, device)],
     ];
 
     const ajv = new Ajv({ strict: false, validateFormats: false });

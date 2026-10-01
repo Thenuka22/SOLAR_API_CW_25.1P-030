@@ -157,6 +157,27 @@ const definition = {
           results: { type: 'array', items: { $ref: '#/components/schemas/Province' } },
         },
       },
+      District: {
+        type: 'object',
+        required: ['id', 'provinceId', 'name'],
+        additionalProperties: false,
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          provinceId: { type: 'string', format: 'uuid' },
+          name: { type: 'string', example: 'Colombo' },
+        },
+      },
+      DistrictCollection: {
+        type: 'object',
+        required: ['count', 'next', 'previous', 'results'],
+        additionalProperties: false,
+        properties: {
+          count: { type: 'integer', minimum: 0, description: 'Total visible to the caller, not just this page.' },
+          next: { type: 'string', nullable: true, example: '/solar/v1.0/provinces/{province-id}/districts?offset=50&limit=50' },
+          previous: { type: 'string', nullable: true },
+          results: { type: 'array', items: { $ref: '#/components/schemas/District' } },
+        },
+      },
     },
     parameters: {
       offset: {
@@ -173,6 +194,12 @@ const definition = {
       },
       provinceId: {
         name: 'province-id',
+        in: 'path',
+        required: true,
+        schema: { type: 'string', format: 'uuid' },
+      },
+      districtId: {
+        name: 'district-id',
         in: 'path',
         required: true,
         schema: { type: 'string', format: 'uuid' },

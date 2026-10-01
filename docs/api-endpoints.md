@@ -1,6 +1,6 @@
 # API Endpoints
 
-Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, and `GET /provinces/{province-id}` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
+Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, and `GET /districts/{district-id}` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
 
 All path IDs are UUIDs. JSON uses camelCase: for example, the model's `power_kw` becomes `powerKw`. Requests and responses use `application/json`.
 
@@ -51,6 +51,12 @@ Each request is handled in this order: bearer authentication (401), principal ty
 The collection is validated by ETag only. Its content also changes when a reader's scope narrows, a province is deleted, or the page changes, and no row timestamp records those changes, so it has no reliable modification time. Without `Last-Modified`, `If-Modified-Since` is ignored (RFC 9110 section 13.1.3) and a 304 needs a matching ETag.
 
 A single province's body depends only on its row, so its `updated_at` is a reliable `Last-Modified`. The database sets it and moves it to a later whole second on every change, so two changes within one second, or a change committed after a response was built, never share the earlier version's `Last-Modified`. After rapid changes `updated_at` can be slightly ahead of the clock; `Last-Modified` is then omitted rather than sent in the future (RFC 9110 section 8.8.2.1).
+
+### Districts (implemented)
+
+Staff readers only, in the same order of checks as provinces. A national reader sees every district, a provincial reader the districts of their province, and a district reader only their own district, so their collection under their province has a count of 1 and a sibling district returns 404. A province outside the reader's scope returns 404 for its district collection; a visible province with no districts returns an empty page.
+
+A district is `{ "id": "<uuid>", "provinceId": "<uuid>", "name": "Colombo" }`. Headers and validators are as for provinces: the collection has an ETag only, and a single district also has `Last-Modified` from its `updated_at`, which the database maintains as for provinces.
 
 ### Query parameters
 

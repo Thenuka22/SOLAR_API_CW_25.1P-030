@@ -30,6 +30,15 @@ function sendCacheableJson(req, res, body, { lastModified = null } = {}) {
   res.type('application/json').send(json);
 }
 
+// A row's updated_at as Last-Modified, or null while it is later than `now` (the query's
+// statement_timestamp()). Every change moves updated_at to a later second (migration 010), so
+// after rapid changes it can be ahead of the clock; a Last-Modified in the future must not be
+// sent (RFC 9110 section 8.8.2.1), and replacing it with the current time could repeat an
+// earlier version's second, so it is omitted.
+function lastModifiedFrom(updatedAt, now) {
+  return updatedAt <= now ? updatedAt : null;
+}
+
 function isNotModified(req, etag, modifiedSeconds) {
   const ifNoneMatch = req.get('If-None-Match');
   if (ifNoneMatch !== undefined) {
@@ -47,4 +56,4 @@ function isNotModified(req, etag, modifiedSeconds) {
   return false;
 }
 
-module.exports = { sendCacheableJson };
+module.exports = { sendCacheableJson, lastModifiedFrom };

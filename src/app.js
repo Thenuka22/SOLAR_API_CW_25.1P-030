@@ -5,6 +5,7 @@ const { notFound, methodNotAllowed, errorHandler } = require('./middleware/error
 const { requireJsonAccept } = require('./middleware/http');
 const tokenRoutes = require('./routes/tokens');
 const provinceRoutes = require('./routes/provinces');
+const districtRoutes = require('./routes/districts');
 
 const app = express();
 
@@ -29,6 +30,7 @@ const api = express.Router();
 api.use(requireJsonAccept);
 api.use(tokenRoutes);
 api.use(provinceRoutes);
+api.use(districtRoutes);
 app.use('/solar/v1.0', api);
 
 // Keep these last: unmatched paths become 404, and every error is returned as JSON.

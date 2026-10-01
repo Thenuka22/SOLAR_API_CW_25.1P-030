@@ -44,6 +44,10 @@ function invalidToken() {
 
 // Sets req.principal from a valid bearer token, or responds 401.
 async function authenticate(req, res, next) {
+  // A nested path such as /provinces/{id}/districts passes through more than one router;
+  // load the principal only once per request.
+  if (req.principal) return next();
+
   const header = req.get('Authorization');
   if (header === undefined) {
     throw new ApiError(ERRORS.AUTHENTICATION_REQUIRED, { headers: { 'WWW-Authenticate': REALM } });
