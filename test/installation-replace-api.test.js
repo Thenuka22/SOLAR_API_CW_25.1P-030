@@ -175,6 +175,6 @@ describe('installation replacement', { skip }, () => {
     assert.equal((await put('not-a-uuid', own())).status, 400);
     const patch = await fetch(url, { method: 'PATCH', headers: auth });
     assert.equal(patch.status, 405);
-    assert.equal(patch.headers.get('allow'), 'GET, HEAD, PUT');
+    assert.equal(patch.headers.get('allow'), 'GET, HEAD, PUT, DELETE');
   });
 });

@@ -294,6 +294,17 @@ const definition = {
           capacityKw: { type: 'number', minimum: 0.001, maximum: 9999999.999, description: 'Rated capacity in kW, greater than 0, at most 3 decimal places.', example: 6.6 },
         },
       },
+      InstallationDeletion: {
+        type: 'object',
+        required: ['id', 'meterId', 'deletedAt'],
+        additionalProperties: false,
+        description: 'A receipt for a completed deletion. The installation itself no longer exists.',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          meterId: { type: 'string', example: 'MTR-0201' },
+          deletedAt: { type: 'string', format: 'date-time', description: 'UTC, with milliseconds.', example: '2026-10-01T09:30:00.000Z' },
+        },
+      },
       InstallationCollection: {
         type: 'object',
         required: ['count', 'next', 'previous', 'results'],
@@ -415,7 +426,7 @@ const definition = {
     headers: {
       ETag: { description: 'Strong tag of the exact response body.', schema: { type: 'string' } },
       LastModified: { description: 'HTTP-date; omitted while the modification time is ahead of the clock.', schema: { type: 'string' } },
-      CacheControl: { description: '`private, no-cache` on reads; `no-store` on tokens.', schema: { type: 'string' } },
+      CacheControl: { description: '`private, no-cache` on reads; `no-store` on tokens and deletion receipts.', schema: { type: 'string' } },
       Vary: { description: '`Authorization`', schema: { type: 'string' } },
       Location: { description: 'Path-absolute URL of the created resource.', schema: { type: 'string' } },
       ContentLocation: { description: 'Same URL as Location: the body is the created resource as a GET of it returns.', schema: { type: 'string' } },
@@ -438,7 +449,7 @@ const definition = {
       }),
       Forbidden: error('The authenticated principal type may not use this operation (3004).'),
       NotFound: error('Missing, or outside the caller\'s jurisdiction (1005). Both give the same response.'),
-      Conflict: error('The request conflicts with stored data: a meter ID that is already registered (4001), a reading that already exists for the installation and instant (4002), or a change to an installation whose readings must keep their history (4003).'),
+      Conflict: error('The request conflicts with stored data: a meter ID that is already registered (4001), a reading that already exists for the installation and instant (4002), or a move or deletion of an installation whose readings must keep their history (4003).'),
       NotAcceptable: error('The Accept header does not allow application/json (1007).'),
       UnsupportedMediaType: error('The body is not application/json (1008), or uses an unsupported charset or content encoding (1004).'),
       PreconditionFailed: error('If-Match or If-Unmodified-Since does not hold for the current version (1010). Nothing was changed.'),

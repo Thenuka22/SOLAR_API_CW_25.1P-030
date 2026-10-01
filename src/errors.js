@@ -29,7 +29,7 @@ const ERRORS = {
   FORBIDDEN: { code: 3004, status: 403, message: 'You do not have permission for this operation.' },
   METER_ID_TAKEN: { code: 4001, status: 409, message: 'Another installation already has this meter ID.' },
   READING_EXISTS: { code: 4002, status: 409, message: 'The installation already has a reading at this timestamp.' },
-  INSTALLATION_HAS_READINGS: { code: 4003, status: 409, message: 'The installation has readings, so this change would alter its history.' },
+  INSTALLATION_HAS_READINGS: { code: 4003, status: 409, message: 'The installation has readings, so it cannot be moved or deleted.' },
 };
 
 class ApiError extends Error {
@@ -44,7 +44,7 @@ class ApiError extends Error {
   }
 }
 
-// location: where the problem is (body, path, query, header, method).
+// location: where the problem is (body, path, query, header, method, request).
 // field: the parameter or property name, or null when the problem is not about one field.
 function detail(location, field, issue) {
   return { location, field, issue };

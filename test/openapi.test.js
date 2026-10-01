@@ -38,6 +38,7 @@ const OPERATIONS = {
   '/solar/v1.0/installations/{installation-id}': {
     get: ['200', '304', '400', '401', '403', '404', '406', '500'],
     put: ['200', '400', '401', '403', '404', '406', '409', '412', '413', '415', '500'],
+    delete: ['200', '400', '401', '403', '404', '406', '409', '412', '500'],
   },
   '/solar/v1.0/installations/{installation-id}/readings': {
     get: ['200', '304', '400', '401', '403', '404', '406', '500'],
@@ -185,6 +186,14 @@ describe('live responses match their documented operation', {
     const history = await read(`/installations/${seeded.id}/readings?limit=2`, national);
     const firstReadingId = (await history.clone().json()).results[0].id;
     const regional = await read('/readings?limit=2&sort=-timestamp', provincial);
+    const remove = (route, token, headers = {}) => fetch(`${base}${route}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${token}`, ...headers },
+    });
+    // An installation without readings, so it can be deleted.
+    const { id: createdId } = (await fixture.db.query(
+      "INSERT INTO solar_installations (substation_id, meter_id, capacity_kw) VALUES ($1, 'OPENAPI-DELETE', 1) RETURNING id",
+      [galleSubstationId],
+    )).rows[0];
     const cases = [
       ['/', 'get', await fetch(`${fixture.url}/`)],
       ['/solar/v1.0/issue-token', 'post', await post({
@@ -269,6 +278,11 @@ describe('live responses match their documented operation', {
         })],
       ['/solar/v1.0/installations/{installation-id}', 'put',
         await send('PUT', `/installations/${MISSING_ID}`, provisioner, { substationId: galleSubstationId, meterId: 'OPENAPI-PUT-2', capacityKw: 3 })],
+      ['/solar/v1.0/installations/{installation-id}', 'delete', await remove(`/installations/${seeded.id}`, provisioner)],
+      ['/solar/v1.0/installations/{installation-id}', 'delete', await remove(`/installations/${createdId}`, provisioner, { 'If-Match': '"stale"' })],
+      ['/solar/v1.0/installations/{installation-id}', 'delete', await remove(`/installations/${createdId}`, national)],
+      ['/solar/v1.0/installations/{installation-id}', 'delete', await remove(`/installations/${createdId}`, provisioner)],
+      ['/solar/v1.0/installations/{installation-id}', 'delete', await remove(`/installations/${createdId}`, provisioner)],
     ];
 
     const ajv = new Ajv({ strict: false, validateFormats: false });

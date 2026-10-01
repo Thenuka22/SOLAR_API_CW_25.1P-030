@@ -60,6 +60,12 @@ function meterIdConflict(err) {
   return err;
 }
 
+function installationHasReadings() {
+  return new ApiError(ERRORS.INSTALLATION_HAS_READINGS, {
+    details: [detail('path', 'installation-id', 'An installation with readings cannot be deleted.')],
+  });
+}
+
 // Authentication runs before any input is read or data is queried; each route checks the
 // principal type.
 router.use(['/grid-substations/:substationId/installations', '/installations'], authenticate);
@@ -329,6 +335,52 @@ router
  *         $ref: '#/components/responses/UnsupportedMediaType'
  *       500:
  *         $ref: '#/components/responses/InternalError'
+ *   delete:
+ *     tags: [Installations]
+ *     summary: Delete an installation that has no readings
+ *     description: |
+ *       Provisioner only; no request body. An installation with readings returns 409 (4003) and
+ *       nothing is deleted, because readings are append-only history. The installation's device
+ *       credential is deleted with it, so tokens issued to that device stop working.
+ *
+ *       `If-Match` or, without it, `If-Unmodified-Since` are checked as for PUT, in the same
+ *       transaction as the delete; a failed condition returns 412 and deletes nothing.
+ *       Conditions are optional.
+ *
+ *       Success is 200 with a short deletion receipt. Repeating the request returns 404, because
+ *       the installation no longer exists.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/installationId'
+ *       - $ref: '#/components/parameters/ifMatch'
+ *       - $ref: '#/components/parameters/ifUnmodifiedSince'
+ *     responses:
+ *       200:
+ *         description: The installation was deleted.
+ *         headers:
+ *           Cache-Control:
+ *             $ref: '#/components/headers/CacheControl'
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InstallationDeletion'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       406:
+ *         $ref: '#/components/responses/NotAcceptable'
+ *       409:
+ *         $ref: '#/components/responses/Conflict'
+ *       412:
+ *         $ref: '#/components/responses/PreconditionFailed'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
  */
 router
   .route('/installations/:installationId')
@@ -401,7 +453,49 @@ router
     setWriteValidators(res, installation, lastModified);
     res.json(installation);
   })
-  .all(methodNotAllowed('GET', 'HEAD', 'PUT'));
+  .delete(requirePrincipal('provisioner'), async (req, res) => {
+    checkQueryNames(req, []);
+    const id = requireUuid(req.params.installationId, 'installation-id');
+
+    const receipt = await withTransaction(async (db) => {
+      // Lock the row, so the condition check, the history check, and the delete see one version.
+      // A first reading's insert waits for this lock too (migration 005).
+      const current = (await db.query(
+        `SELECT ${INSTALLATION_JSON} AS installation, i.updated_at,
+                EXISTS (SELECT 1 FROM generation_readings r WHERE r.installation_id = i.id) AS has_readings
+         FROM solar_installations i WHERE i.id = $1 FOR UPDATE`,
+        [id],
+      )).rows[0];
+      // Also the answer to a repeated DELETE: the installation is gone (WSO2 section 7.4).
+      if (!current) throw new ApiError(ERRORS.RESOURCE_NOT_FOUND);
+      if (!writePreconditionsHold(req, current.installation, current.updated_at)) {
+        throw new ApiError(ERRORS.PRECONDITION_FAILED);
+      }
+      // Readings are append-only history and cannot be deleted, so neither can their installation.
+      if (current.has_readings) throw installationHasReadings();
+      try {
+        // The device credential is deleted with the installation (ON DELETE CASCADE).
+        return (await db.query(
+          `DELETE FROM solar_installations WHERE id = $1
+           RETURNING json_build_object(
+             'id', id,
+             'meterId', meter_id,
+             'deletedAt', to_char(clock_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+           ) AS receipt`,
+          [id],
+        )).rows[0].receipt;
+      } catch (err) {
+        // The readings foreign key also refuses the delete, should a reading get past the lock.
+        if (err.code === '23503' && err.constraint === 'generation_readings_installation_id_fkey') {
+          throw installationHasReadings();
+        }
+        throw err;
+      }
+    });
+    // A receipt, not a representation: there is nothing left to validate or cache.
+    res.set('Cache-Control', 'no-store').json(receipt);
+  })
+  .all(methodNotAllowed('GET', 'HEAD', 'PUT', 'DELETE'));
 
 /**
  * @openapi

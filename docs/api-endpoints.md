@@ -1,6 +1,6 @@
 # API Endpoints
 
-Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, `GET /districts/{district-id}`, `GET /districts/{district-id}/grid-substations`, `GET /grid-substations/{substation-id}`, `GET` and `POST /grid-substations/{substation-id}/installations`, `GET` and `PUT /installations/{installation-id}`, `GET` and `POST /installations/{installation-id}/readings`, `GET /installations/{installation-id}/readings/{reading-id}`, `GET /installations/{installation-id}/last-known-reading`, `GET /installations/{installation-id}/overview`, and `GET /readings` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
+Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, `GET /districts/{district-id}`, `GET /districts/{district-id}/grid-substations`, `GET /grid-substations/{substation-id}`, `GET` and `POST /grid-substations/{substation-id}/installations`, `GET`, `PUT`, and `DELETE /installations/{installation-id}`, `GET` and `POST /installations/{installation-id}/readings`, `GET /installations/{installation-id}/readings/{reading-id}`, `GET /installations/{installation-id}/last-known-reading`, `GET /installations/{installation-id}/overview`, and `GET /readings` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
 
 All path IDs are UUIDs. JSON uses camelCase: for example, the model's `power_kw` becomes `powerKw`. Requests and responses use `application/json`.
 
@@ -104,7 +104,7 @@ Combine regional filters with AND. Valid filters with no visible matches return 
 | POST | `/installations/{installation-id}/readings` | Owning device; `timestamp`, `powerKw`, `energyKwh`, `voltage` | 201, created reading, Location | 400, 401, 403, 404, 406, 409, 415 |
 | POST | `/grid-substations/{substation-id}/installations` | Provisioner; `meterId`, `address`, `capacityKw` | 201, created installation, Location | 400, 401, 403, 404, 406, 409, 415 |
 | PUT | `/installations/{installation-id}` | Provisioner; complete writable metadata: `substationId`, `meterId`, `address`, `capacityKw` | 200, updated installation | 400, 401, 403, 404, 406, 409, 412, 415 |
-| DELETE | `/installations/{installation-id}` | Provisioner; path ID, no request body | 200, deletion confirmation | 400, 401, 403, 404, 406, 409, 412 |
+| DELETE | `/installations/{installation-id}` | Provisioner; path ID, no request body | 200, deletion receipt | 400, 401, 403, 404, 406, 409, 412 |
 
 - Creation derives the parent from the path. The server generates the resource ID. Location uses the canonical individual URL from the read table. As WSO2 sections 7.3 and 9 recommend, the 201 response also carries the ETag a GET of the new resource would return, its Last-Modified where that GET has one (installations, not readings), and a Content-Location equal to Location, because the body is that representation.
 - Reading ingestion derives ownership from the authenticated device and path. A device targeting another installation gets 403. It receives the created reading without gaining analyst read permission.
@@ -114,6 +114,7 @@ Combine regional filters with AND. Valid filters with no visible matches return 
 - Deleting an installation with readings or moving it to another substation after readings exist returns 409. Permitted descriptive changes do not alter history.
 - PUT and DELETE support supplied If-Match and If-Unmodified-Since conditions. A failed condition returns 412 without changing data; check and mutation occur in one transaction. Clients should use conditions to avoid overwriting a newer version.
 - Repeating a successful DELETE returns 404 once the installation is gone.
+- DELETE (implemented) locks the row and checks conditions exactly as PUT does, then refuses an installation with readings with 409 (code 4003) even when the condition holds. Success returns 200 with a receipt `{ "id", "meterId", "deletedAt" }` and `Cache-Control: no-store`, with no ETag because nothing is left to validate. WSO2 section 7.4 only requires 200; the receipt body is this API's own choice, so the operator can confirm which meter was removed. The installation's device credential is deleted with it, so that device's tokens stop working.
 - PUT locks the installation row, then checks `If-Match` (strong comparison; `*` matches any existing installation) or, only when `If-Match` is absent, `If-Unmodified-Since` against `updated_at`; an unparseable date is ignored. A missing installation returns 404 before any condition is checked. A `substationId` that names no substation returns 400 (code 2001), because the body is wrong, not the target resource. The 200 response carries the ETag and, unless `updated_at` is ahead of the clock, the `Last-Modified` that a GET would now return.
 
 ## Processing endpoints
@@ -185,7 +186,7 @@ Every error response, including 404 for unknown paths, is JSON:
 | 3004 | 403 | The authenticated principal type may not use this operation |
 | 4001 | 409 | Another installation already has this meter ID |
 | 4002 | 409 | The installation already has a reading at this timestamp |
-| 4003 | 409 | The installation has readings, so it cannot move to another substation |
+| 4003 | 409 | The installation has readings, so it cannot move to another substation or be deleted |
 
 Codes 1000-1099 cover general request and routing errors, 2000-2099 input validation, 3000-3099 authentication and authorization, and 4000-4099 conflicts with stored data. JSON bodies are parsed before routing, so malformed JSON sent to an unknown path returns 400, not 404. The code catalogue is in `src/errors.js`.
 
