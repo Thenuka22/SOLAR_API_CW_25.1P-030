@@ -26,4 +26,8 @@ An installation with readings cannot be deleted or moved to a different substati
 - Return 401 with a Bearer challenge for a missing or invalid bearer token, 400 for rejected token-request credentials (see [Token request](authentication.md#token-request)), 403 for a forbidden operation, and the same 404 response for missing and concealed out-of-scope resources. Validate access before returning 304 or exposing validators.
 - Keep passwords/secrets hashed where verified, use HTTPS and parameterized SQL, and redact credentials from responses/logs. Token responses use no-store; authenticated data must not enter shared caches.
 
+## Transport and response headers
+
+HTTPS enforcement is provided by Render, which automatically redirects HTTP requests to HTTPS and manages TLS certificates. Application-level HSTS was therefore not added, to avoid duplicating platform-level transport security. The API still adds `X-Content-Type-Options: nosniff` and disables the `X-Powered-By` header as lightweight hardening (`src/app.js`).
+
 Endpoint-specific permissions and errors are listed in [API Endpoints](api-endpoints.md).

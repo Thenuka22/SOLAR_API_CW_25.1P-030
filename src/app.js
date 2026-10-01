@@ -19,6 +19,14 @@ app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS ?? 0));
 // Validators are set explicitly on domain GETs (src/http/conditional.js); no automatic ETags
 // on other responses such as errors.
 app.set('etag', false);
+// Do not advertise the framework.
+app.disable('x-powered-by');
+
+// Responses are JSON (or Swagger UI's own files); a browser must not guess another type.
+app.use((req, res, next) => {
+  res.set('X-Content-Type-Options', 'nosniff');
+  next();
+});
 
 app.use(express.json());
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));

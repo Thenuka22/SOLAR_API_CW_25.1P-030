@@ -58,6 +58,14 @@ describe('application routes', () => {
     assert.equal(asset.status, 200);
   });
 
+  test('every response says nosniff and does not name the framework', async () => {
+    for (const path of ['/', '/api-docs/', '/no-such-route', '/solar/v1.0/provinces']) {
+      const res = await fetch(`${server.url}${path}`);
+      assert.equal(res.headers.get('x-content-type-options'), 'nosniff', path);
+      assert.equal(res.headers.get('x-powered-by'), null, path);
+    }
+  });
+
   test('an unknown route returns 404 in the error format', async () => {
     const res = await fetch(`${server.url}/no-such-route?x=1`);
     const body = await assertError(res, ERRORS.RESOURCE_NOT_FOUND);
