@@ -292,7 +292,7 @@ const definition = {
           timestamp: {
             type: 'string',
             format: 'date-time',
-            description: 'RFC 3339 with a timezone offset (Z or +hh:mm); at most millisecond precision.',
+            description: 'RFC 3339 with a timezone offset (Z or +hh:mm); at most millisecond precision; not more than 5 minutes after the current time.',
             example: '2026-09-08T12:00:00+05:30',
           },
           powerKw: { type: 'number', minimum: 0, maximum: 9999999.999, description: 'kW, at most 3 decimal places.', example: 3.214 },

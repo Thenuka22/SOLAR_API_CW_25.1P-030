@@ -20,6 +20,11 @@ const MEASUREMENTS = {
   voltage: { decimals: 2, max: 99999.99, unit: 'V' }, // numeric(7, 2)
 };
 
+// A reading is a measurement that has been taken, so it cannot be dated in the future. A device
+// clock may run slightly fast; beyond this allowance the clock is wrong, and accepting the
+// reading would make it the last-known reading until real time caught up.
+const MAX_CLOCK_AHEAD_MILLISECONDS = 5 * 60 * 1000;
+
 // Validates a reading body and reports every problem at once (400).
 function validateReadingBody(body) {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) {
@@ -34,6 +39,8 @@ function validateReadingBody(body) {
   if (!timestamp) {
     problems.push(detail('body', 'timestamp',
       'timestamp must be an RFC 3339 date-time with a timezone offset (Z or +hh:mm), at most millisecond precision.'));
+  } else if (timestamp.getTime() > Date.now() + MAX_CLOCK_AHEAD_MILLISECONDS) {
+    problems.push(detail('body', 'timestamp', 'timestamp must not be more than 5 minutes after the current time.'));
   }
   for (const [field, { decimals, max, unit }] of Object.entries(MEASUREMENTS)) {
     const value = body[field];

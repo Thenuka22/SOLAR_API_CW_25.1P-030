@@ -134,6 +134,23 @@ describe('device reading ingestion', { skip }, () => {
     }
   });
 
+  test('a reading may be dated up to 5 minutes ahead, to allow for a fast device clock, and no later', async () => {
+    const ahead = (minutes) => new Date(Date.now() + minutes * 60000).toISOString();
+    for (const timestamp of [ahead(6), ahead(60), '2099-01-01T00:00:00Z']) {
+      const res = await submit({ ...VALID, timestamp });
+      assert.equal(res.status, 400, timestamp);
+      const body = await res.json();
+      assert.equal(body.code, 2001, timestamp);
+      assert.deepEqual(body.details.map((item) => item.field), ['timestamp'], timestamp);
+    }
+    const { rows } = await fixture.db.query(
+      'SELECT 1 FROM generation_readings WHERE installation_id = $1 AND "timestamp" > now() + interval \'5 minutes\'',
+      [fixture.device.id],
+    );
+    assert.equal(rows.length, 0);
+    assert.equal((await submit({ ...VALID, timestamp: ahead(4) })).status, 201);
+  });
+
   test('measurements are non-negative numbers within the stored precision', async () => {
     const accepted = await submit({
       timestamp: '2026-09-10T00:00:00Z', powerKw: 0, energyKwh: 99999999999.999, voltage: 230.12,
