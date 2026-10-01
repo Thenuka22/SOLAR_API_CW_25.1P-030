@@ -1,6 +1,6 @@
 # API Endpoints
 
-Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, `GET /districts/{district-id}`, `GET /districts/{district-id}/grid-substations`, and `GET /grid-substations/{substation-id}` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
+Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, `GET /districts/{district-id}`, `GET /districts/{district-id}/grid-substations`, `GET /grid-substations/{substation-id}`, `GET /grid-substations/{substation-id}/installations`, and `GET /installations/{installation-id}` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
 
 All path IDs are UUIDs. JSON uses camelCase: for example, the model's `power_kw` becomes `powerKw`. Requests and responses use `application/json`.
 
@@ -61,6 +61,10 @@ A district is `{ "id": "<uuid>", "provinceId": "<uuid>", "name": "Colombo" }`. H
 ### Grid substations (implemented)
 
 A substation is `{ "id": "<uuid>", "districtId": "<uuid>", "name": "Kolonnawa" }`. Staff readers see every substation of a district in their scope; a district outside it returns 404 for its collection, and a substation outside it returns 404. The provisioner may read any individual substation, because it registers installations there, but gets 403 for the district's collection; a device gets 403 for both. Validators are as for districts.
+
+### Installations (implemented)
+
+An installation is `{ "id": "<uuid>", "substationId": "<uuid>", "meterId": "MTR-0001", "address": "<text or null>", "capacityKw": 5.5 }`, with metadata only; readings never appear in these responses. Staff readers see installations at substations in their scope, and the provisioner may list and read any installation. A device gets 403, even for its own installation. Validators are as for districts; the single installation's `Last-Modified` comes from its `updated_at`, which a new reading does not change.
 
 ### Query parameters
 

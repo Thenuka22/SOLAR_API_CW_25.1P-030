@@ -29,6 +29,12 @@ const OPERATIONS = {
   '/solar/v1.0/grid-substations/{substation-id}': {
     get: ['200', '304', '400', '401', '403', '404', '406', '500'],
   },
+  '/solar/v1.0/grid-substations/{substation-id}/installations': {
+    get: ['200', '304', '400', '401', '403', '404', '406', '500'],
+  },
+  '/solar/v1.0/installations/{installation-id}': {
+    get: ['200', '304', '400', '401', '403', '404', '406', '500'],
+  },
 };
 
 describe('OpenAPI contract for implemented endpoints', () => {
@@ -178,6 +184,12 @@ describe('live responses match their documented operation', {
       ['/solar/v1.0/grid-substations/{substation-id}', 'get', await read(`/grid-substations/${galleSubstationId}`, provisioner)],
       ['/solar/v1.0/grid-substations/{substation-id}', 'get', await read(`/grid-substations/${galleSubstationId}`, provincial)],
       ['/solar/v1.0/grid-substations/{substation-id}', 'get', await read(`/grid-substations/${galleSubstationId}`)],
+      ['/solar/v1.0/grid-substations/{substation-id}/installations', 'get',
+        await read(`/grid-substations/${galleSubstationId}/installations`, provisioner)],
+      ['/solar/v1.0/grid-substations/{substation-id}/installations', 'get',
+        await read(`/grid-substations/${galleSubstationId}/installations`, provincial)],
+      ['/solar/v1.0/installations/{installation-id}', 'get', await read(`/installations/${fixture.device.id}`, provincial)],
+      ['/solar/v1.0/installations/{installation-id}', 'get', await read(`/installations/${fixture.device.id}`, device)],
     ];
 
     const ajv = new Ajv({ strict: false, validateFormats: false });

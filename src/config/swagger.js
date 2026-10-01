@@ -29,6 +29,7 @@ const definition = {
     { name: 'Provinces', description: 'Staff readers only; results are limited to the reader\'s jurisdiction.' },
     { name: 'Districts', description: 'Staff readers only; results are limited to the reader\'s jurisdiction.' },
     { name: 'Grid substations', description: 'Staff readers within their jurisdiction; provisioners may read an individual substation.' },
+    { name: 'Installations', description: 'Installation metadata. Staff readers within their jurisdiction; provisioners for any installation.' },
   ],
   paths: {
     '/': {
@@ -201,6 +202,29 @@ const definition = {
           results: { type: 'array', items: { $ref: '#/components/schemas/GridSubstation' } },
         },
       },
+      Installation: {
+        type: 'object',
+        required: ['id', 'substationId', 'meterId', 'address', 'capacityKw'],
+        additionalProperties: false,
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          substationId: { type: 'string', format: 'uuid' },
+          meterId: { type: 'string', example: 'MTR-0001' },
+          address: { type: 'string', nullable: true, example: 'No. 14, Temple Road, Kolonnawa' },
+          capacityKw: { type: 'number', minimum: 0.001, description: 'Rated capacity in kW, greater than 0, at most 3 decimal places.', example: 5.5 },
+        },
+      },
+      InstallationCollection: {
+        type: 'object',
+        required: ['count', 'next', 'previous', 'results'],
+        additionalProperties: false,
+        properties: {
+          count: { type: 'integer', minimum: 0, description: 'Total visible to the caller, not just this page.' },
+          next: { type: 'string', nullable: true, example: '/solar/v1.0/grid-substations/{substation-id}/installations?offset=50&limit=50' },
+          previous: { type: 'string', nullable: true },
+          results: { type: 'array', items: { $ref: '#/components/schemas/Installation' } },
+        },
+      },
     },
     parameters: {
       offset: {
@@ -229,6 +253,12 @@ const definition = {
       },
       substationId: {
         name: 'substation-id',
+        in: 'path',
+        required: true,
+        schema: { type: 'string', format: 'uuid' },
+      },
+      installationId: {
+        name: 'installation-id',
         in: 'path',
         required: true,
         schema: { type: 'string', format: 'uuid' },
