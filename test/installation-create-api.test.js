@@ -50,12 +50,18 @@ describe('installation creation', { skip }, () => {
       id: created.id, substationId, meterId: 'CREATE-TEST-001', address: 'No. 1, Test Road', capacityKw: 7.125,
     });
     assert.equal(res.headers.get('location'), `/solar/v1.0/installations/${created.id}`);
+    assert.equal(res.headers.get('content-location'), res.headers.get('location'));
 
     const fetched = await fetch(`${fixture.url}${res.headers.get('location')}`, {
       headers: { Authorization: `Bearer ${provisionerToken()}` },
     });
     assert.equal(fetched.status, 200);
     assert.deepEqual(await fetched.json(), created);
+    // The validators are the ones a GET of the new installation returns (WSO2 sections 7.3, 9).
+    assert.ok(res.headers.get('etag'));
+    assert.equal(res.headers.get('etag'), fetched.headers.get('etag'));
+    assert.ok(res.headers.get('last-modified'));
+    assert.equal(res.headers.get('last-modified'), fetched.headers.get('last-modified'));
   });
 
   test('an omitted or null address is stored as null', async () => {

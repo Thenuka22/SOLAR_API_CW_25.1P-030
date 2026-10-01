@@ -5,7 +5,7 @@ const { authenticate, requirePrincipal } = require('../middleware/authenticate')
 const { methodNotAllowed } = require('../middleware/errors');
 const { requireJsonBody } = require('../middleware/http');
 const { checkQueryNames, parsePage, pageLinks, isUuid, requireUuid } = require('../http/query');
-const { sendCacheableJson } = require('../http/conditional');
+const { sendCacheableJson, setWriteValidators } = require('../http/conditional');
 const { parseTimestamp } = require('../http/timestamps');
 const { readerScope, DISTRICT_VISIBLE } = require('../auth/scope');
 const { READING_JSON } = require('../db/representations');
@@ -267,6 +267,10 @@ router
  *         headers:
  *           Location:
  *             $ref: '#/components/headers/Location'
+ *           Content-Location:
+ *             $ref: '#/components/headers/ContentLocation'
+ *           ETag:
+ *             $ref: '#/components/headers/ETag'
  *         content:
  *           application/json:
  *             schema:
@@ -351,9 +355,11 @@ router
     // The installation was deleted after the token was checked.
     if (rows.length === 0) throw new ApiError(ERRORS.RESOURCE_NOT_FOUND);
     const { reading: created } = rows[0];
-    res.status(201)
-      .location(`${req.baseUrl}/installations/${installationId}/readings/${created.id}`)
-      .json(created);
+    // WSO2 sections 7.3 and 9: Location and the ETag a GET of it would return. The body is that
+    // representation, so Content-Location repeats its URL. No Last-Modified, as for the GET.
+    const url = `${req.baseUrl}/installations/${installationId}/readings/${created.id}`;
+    setWriteValidators(res, created, null);
+    res.status(201).location(url).set('Content-Location', url).json(created);
   })
   .all(methodNotAllowed('GET', 'HEAD', 'POST'));
 

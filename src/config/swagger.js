@@ -418,6 +418,7 @@ const definition = {
       CacheControl: { description: '`private, no-cache` on reads; `no-store` on tokens.', schema: { type: 'string' } },
       Vary: { description: '`Authorization`', schema: { type: 'string' } },
       Location: { description: 'Path-absolute URL of the created resource.', schema: { type: 'string' } },
+      ContentLocation: { description: 'Same URL as Location: the body is the created resource as a GET of it returns.', schema: { type: 'string' } },
       RetryAfter: { description: 'Seconds until another request is allowed.', schema: { type: 'integer' } },
       RateLimit: { description: 'Remaining requests and reset time (IETF RateLimit header draft 7).', schema: { type: 'string' } },
       WWWAuthenticate: { description: 'Bearer challenge; `error="invalid_token"` when a token was sent.', schema: { type: 'string' } },

@@ -137,6 +137,12 @@ router.use(['/grid-substations/:substationId/installations', '/installations'], 
  *         headers:
  *           Location:
  *             $ref: '#/components/headers/Location'
+ *           Content-Location:
+ *             $ref: '#/components/headers/ContentLocation'
+ *           ETag:
+ *             $ref: '#/components/headers/ETag'
+ *           Last-Modified:
+ *             $ref: '#/components/headers/LastModified'
  *         content:
  *           application/json:
  *             schema:
@@ -199,15 +205,19 @@ router
       ({ rows } = await pool.query(
         `INSERT INTO solar_installations AS i (substation_id, meter_id, address, capacity_kw)
          SELECT id, $2, $3, $4 FROM grid_substations WHERE id = $1
-         RETURNING ${INSTALLATION_JSON} AS installation`,
+         RETURNING ${INSTALLATION_JSON} AS installation, i.updated_at, clock_timestamp() AS now`,
         [substationId, values.meterId, values.address, values.capacityKw],
       ));
     } catch (err) {
       throw meterIdConflict(err);
     }
     if (rows.length === 0) throw new ApiError(ERRORS.RESOURCE_NOT_FOUND);
-    const { installation } = rows[0];
-    res.status(201).location(`${req.baseUrl}/installations/${installation.id}`).json(installation);
+    const { installation, updated_at: updatedAt, now } = rows[0];
+    // WSO2 sections 7.3 and 9: Location, plus the ETag and Last-Modified a GET of it would
+    // return. The body is that representation, so Content-Location repeats its URL.
+    const url = `${req.baseUrl}/installations/${installation.id}`;
+    setWriteValidators(res, installation, lastModifiedFrom(updatedAt, now));
+    res.status(201).location(url).set('Content-Location', url).json(installation);
   })
   .all(methodNotAllowed('GET', 'HEAD', 'POST'));
 

@@ -65,6 +65,14 @@ describe('device reading ingestion', { skip }, () => {
     });
     assert.equal(res.headers.get('location'),
       `/solar/v1.0/installations/${fixture.device.id}/readings/${created.id}`);
+    assert.equal(res.headers.get('content-location'), res.headers.get('location'));
+    // The ETag is the one a staff GET of the new reading returns (WSO2 sections 7.3, 9).
+    const fetched = await fetch(`${fixture.url}${res.headers.get('location')}`, {
+      headers: { Authorization: `Bearer ${fixture.token('staff', fixture.staff.district)}` },
+    });
+    assert.ok(res.headers.get('etag'));
+    assert.equal(res.headers.get('etag'), fetched.headers.get('etag'));
+    assert.equal(res.headers.get('last-modified'), null);
 
     const stored = (await fixture.db.query(
       `SELECT installation_id, "timestamp", power_kw, energy_kwh, voltage FROM generation_readings WHERE id = $1`,
