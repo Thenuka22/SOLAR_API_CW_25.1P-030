@@ -28,6 +28,8 @@ The seed runner applies the SQL files in `src/db/seeds/` in order after the migr
 
 The seeds load 9 provinces, 25 districts, 35 grid substations, 200 installations, and one week of 15-minute readings for every installation (2026-09-01 00:00 to 2026-09-08 00:00 Sri Lanka time, end exclusive: 134,400 readings). Reading values are generated deterministically, so every run produces the same data. Readings are append-only and cannot be deleted, so use a fresh database to start again.
 
+The seed also creates three demo staff users, one for each role: a national reader, a provincial reader for Western, and a district reader for Colombo. It stores no passwords. Demo users can sign in only after a password is set with the credentials command below. Credentials are supplied separately for assessment and are not stored in the repository.
+
 ## Credentials
 
 Staff passwords, provisioner accounts, and device secrets are managed from the command line, never through the API:
