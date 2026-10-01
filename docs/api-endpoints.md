@@ -37,7 +37,7 @@ Only staff readers may read provinces; a device or provisioner token gets 403. A
 
 A province is `{ "id": "<uuid>", "name": "Western" }`. The collection accepts only `offset` and `limit`; a single province accepts no query parameters. Page links are path-absolute, for example `/solar/v1.0/provinces?offset=2&limit=2`.
 
-Each request is handled in this order: bearer authentication (401), principal type (403), input validation (400), scoped query, then the conditional check (304) or the response. A client therefore cannot learn about an out-of-scope province from a 304, a count, or a validator.
+Each request is handled in this order: bearer authentication (401), token scope (403), input validation (400), scoped query, then the conditional check (304) or the response. A client therefore cannot learn about an out-of-scope province from a 304, a count, or a validator.
 
 | Header | Value |
 | --- | --- |
@@ -122,7 +122,7 @@ Combine regional filters with AND. Valid filters with no visible matches return 
 | Method | Path | Caller and input | Success | Errors |
 | --- | --- | --- | --- | --- |
 | POST | `/summarize-district-generation` | Reader; `districtId`, optional `date` in YYYY-MM-DD | 200, district generation summary | 400, 401, 403, 404, 406, 413, 415 |
-| POST | `/issue-token` | Registered principal; `principalType` and its credentials, not an existing bearer token | 200, `accessToken`, `tokenType`, `expiresIn` | 400, 406, 415, 429 |
+| POST | `/issue-token` | Registered principal; `principalType` and its credentials, not an existing bearer token | 200, `accessToken`, `tokenType`, `expiresIn`, `scope` | 400, 406, 415, 429 |
 
 ### District generation summary
 
@@ -160,7 +160,7 @@ The summary is computed immediately, creates no persistent resource, and has no 
 | 304 | GET representation unchanged; empty body |
 | 400 | Malformed JSON, invalid UUID/value/query, missing required input, unknown writable field, or token request credentials that are not valid |
 | 401 | Missing or invalid bearer token; include a `Bearer` WWW-Authenticate challenge |
-| 403 | Principal lacks the operation permission, including a device targeting another installation |
+| 403 | Token lacks the scope for the operation (with an `insufficient_scope` challenge), or a device targets another installation |
 | 404 | Missing or concealed out-of-scope resource, or reading under the wrong parent |
 | 405 | Unsupported method on a known path; include Allow |
 | 406 | Accept does not permit the supported JSON response |
@@ -206,7 +206,7 @@ Every error response, including 404 for unknown paths, is JSON:
 | 3001 | 400 | Token request credentials are not valid; same response whatever the cause |
 | 3002 | 401 | No bearer token was sent |
 | 3003 | 401 | The bearer token is invalid, expired, or revoked |
-| 3004 | 403 | The authenticated principal type may not use this operation |
+| 3004 | 403 | The token lacks the scope the operation needs, or a device addressed another installation |
 | 4001 | 409 | Another installation already has this meter ID |
 | 4002 | 409 | The installation already has a reading at this timestamp |
 | 4003 | 409 | The installation has readings, so it cannot move to another substation or be deleted |

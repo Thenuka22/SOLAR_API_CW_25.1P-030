@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../config/db');
 const { ERRORS, ApiError, detail } = require('../errors');
-const { authenticate, requirePrincipal } = require('../middleware/authenticate');
+const { authenticate, requireScope } = require('../middleware/authenticate');
 const { methodNotAllowed } = require('../middleware/errors');
 const { requireJsonBody } = require('../middleware/http');
 const { checkQueryNames, isUuid } = require('../http/query');
@@ -114,7 +114,7 @@ function validateSummaryRequest(body) {
  */
 router
   .route('/summarize-district-generation')
-  .post(authenticate, requirePrincipal('staff'), requireJsonBody, async (req, res) => {
+  .post(authenticate, requireScope('readings:read'), requireJsonBody, async (req, res) => {
     checkQueryNames(req, []);
     const { districtId, date } = validateSummaryRequest(req.body);
 

@@ -62,16 +62,20 @@ async function authenticate(req, res, next) {
   const row = (await pool.query(LOADERS[claims.type], [claims.id])).rows[0];
   if (!row || row.credential_version !== claims.credentialVersion) throw invalidToken();
 
-  req.principal = toPrincipal(claims.type, row);
+  req.principal = { ...toPrincipal(claims.type, row), scopes: claims.scopes };
   next();
 }
 
-// 403 unless the authenticated principal is one of the given types.
-function requirePrincipal(...types) {
+// 403 unless the token carries one of the given scopes. The challenge names the scope needed
+// (RFC 6750 section 3.1). A scope allows the operation; the route still limits the rows to the
+// caller's jurisdiction or own installation.
+function requireScope(...scopes) {
   return (req, res, next) => {
-    if (types.includes(req.principal.type)) return next();
-    next(new ApiError(ERRORS.FORBIDDEN));
+    if (scopes.some((scope) => req.principal.scopes.includes(scope))) return next();
+    next(new ApiError(ERRORS.FORBIDDEN, {
+      headers: { 'WWW-Authenticate': `${REALM}, error="insufficient_scope", scope="${scopes.join(' ')}"` },
+    }));
   };
 }
 
-module.exports = { authenticate, requirePrincipal };
+module.exports = { authenticate, requireScope };

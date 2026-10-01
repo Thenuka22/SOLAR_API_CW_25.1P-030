@@ -11,6 +11,21 @@ const TOKEN_LIFETIMES = {
   provisioner: 15 * 60,
 };
 
+// Scopes: what each kind of principal may do. They are granted here, on the server, from the
+// principal type; a client never chooses them. A scope names an operation, not a region: which
+// rows a staff reader may see comes from their jurisdiction, loaded on each request
+// (src/auth/scope.js).
+//   hierarchy:read       provinces, districts, and a district's substation collection
+//   installations:read   a substation, its installations, and installation metadata
+//   installations:write  register, replace, and delete installations
+//   readings:read        reading history, last-known reading, overview, and district summary
+//   readings:write       submit readings for the device's own installation
+const SCOPES = {
+  staff: ['hierarchy:read', 'installations:read', 'readings:read'],
+  device: ['readings:write'],
+  provisioner: ['installations:read', 'installations:write'],
+};
+
 // Read on use rather than at startup, so the app (and its tests) can load without a secret.
 // A missing or short secret is a server fault and surfaces as a 500.
 function getJwtSecret() {
@@ -21,4 +36,4 @@ function getJwtSecret() {
   return secret;
 }
 
-module.exports = { ISSUER, AUDIENCE, ALGORITHM, TOKEN_LIFETIMES, getJwtSecret };
+module.exports = { ISSUER, AUDIENCE, ALGORITHM, TOKEN_LIFETIMES, SCOPES, getJwtSecret };

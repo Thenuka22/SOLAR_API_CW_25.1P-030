@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../config/db');
 const { ERRORS, ApiError } = require('../errors');
-const { authenticate, requirePrincipal } = require('../middleware/authenticate');
+const { authenticate, requireScope } = require('../middleware/authenticate');
 const { methodNotAllowed } = require('../middleware/errors');
 const { checkQueryNames, parsePage, pageLinks, requireUuid } = require('../http/query');
 const { sendCacheableJson, lastModifiedFrom } = require('../http/conditional');
@@ -11,7 +11,7 @@ const router = express.Router();
 
 // Authentication runs before any input is read or data is queried. The district's substation
 // collection is for staff readers only; a provisioner may read an individual substation.
-router.use('/districts/:districtId/grid-substations', authenticate, requirePrincipal('staff'));
+router.use('/districts/:districtId/grid-substations', authenticate, requireScope('hierarchy:read'));
 router.use('/grid-substations', authenticate);
 
 /**
@@ -137,7 +137,7 @@ router
  */
 router
   .route('/grid-substations/:substationId')
-  .get(requirePrincipal('staff', 'provisioner'), async (req, res) => {
+  .get(requireScope('installations:read'), async (req, res) => {
     checkQueryNames(req, []);
     const id = requireUuid(req.params.substationId, 'substation-id');
     const { rows } = await pool.query(

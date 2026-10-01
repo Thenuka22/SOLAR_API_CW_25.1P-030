@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../config/db');
 const { ERRORS, ApiError, detail } = require('../errors');
-const { authenticate, requirePrincipal } = require('../middleware/authenticate');
+const { authenticate, requireScope } = require('../middleware/authenticate');
 const { methodNotAllowed } = require('../middleware/errors');
 const { requireJsonBody } = require('../middleware/http');
 const { checkQueryNames, parsePage, pageLinks, isUuid, requireUuid } = require('../http/query');
@@ -67,7 +67,7 @@ function installationHasReadings() {
 }
 
 // Authentication runs before any input is read or data is queried; each route checks the
-// principal type.
+// token's scope.
 router.use(['/grid-substations/:substationId/installations', '/installations'], authenticate);
 
 /**
@@ -174,7 +174,7 @@ router.use(['/grid-substations/:substationId/installations', '/installations'], 
  */
 router
   .route('/grid-substations/:substationId/installations')
-  .get(requirePrincipal('staff', 'provisioner'), async (req, res) => {
+  .get(requireScope('installations:read'), async (req, res) => {
     const page = parsePage(req);
     const substationId = requireUuid(req.params.substationId, 'substation-id');
     // One statement, so the parent check, count, and page come from the same snapshot. Every
@@ -200,7 +200,7 @@ router
     if (!found) throw new ApiError(ERRORS.RESOURCE_NOT_FOUND);
     sendCacheableJson(req, res, { count, ...pageLinks(req, page, count), results });
   })
-  .post(requirePrincipal('provisioner'), requireJsonBody, async (req, res) => {
+  .post(requireScope('installations:write'), requireJsonBody, async (req, res) => {
     checkQueryNames(req, []);
     const substationId = requireUuid(req.params.substationId, 'substation-id');
     const values = validateInstallationBody(req.body, ['meterId', 'address', 'capacityKw']);
@@ -384,7 +384,7 @@ router
  */
 router
   .route('/installations/:installationId')
-  .get(requirePrincipal('staff', 'provisioner'), async (req, res) => {
+  .get(requireScope('installations:read'), async (req, res) => {
     checkQueryNames(req, []);
     const id = requireUuid(req.params.installationId, 'installation-id');
     const { rows } = await pool.query(
@@ -401,7 +401,7 @@ router
     // The body depends only on this row, so its updated_at is a reliable Last-Modified.
     sendCacheableJson(req, res, installation, { lastModified: lastModifiedFrom(updatedAt, now) });
   })
-  .put(requirePrincipal('provisioner'), requireJsonBody, async (req, res) => {
+  .put(requireScope('installations:write'), requireJsonBody, async (req, res) => {
     checkQueryNames(req, []);
     const id = requireUuid(req.params.installationId, 'installation-id');
     const values = validateInstallationBody(req.body, ['substationId', 'meterId', 'address', 'capacityKw']);
@@ -453,7 +453,7 @@ router
     setWriteValidators(res, installation, lastModified);
     res.json(installation);
   })
-  .delete(requirePrincipal('provisioner'), async (req, res) => {
+  .delete(requireScope('installations:write'), async (req, res) => {
     checkQueryNames(req, []);
     const id = requireUuid(req.params.installationId, 'installation-id');
 
@@ -547,7 +547,7 @@ router
  */
 router
   .route('/installations/:installationId/overview')
-  .get(requirePrincipal('staff'), async (req, res) => {
+  .get(requireScope('readings:read'), async (req, res) => {
     checkQueryNames(req, []);
     const id = requireUuid(req.params.installationId, 'installation-id');
     // One statement, so every embedded record comes from the same snapshot.

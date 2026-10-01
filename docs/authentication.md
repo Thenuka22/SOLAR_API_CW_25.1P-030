@@ -70,10 +70,25 @@ Tokens are signed with HS256 using the `JWT_SECRET` environment variable (at lea
 | `sub` | User ID | Installation ID | Provisioner ID |
 | `principalType` | `staff` | `device` | `provisioner` |
 | `credentialVersion` | Current `credential_version` of the credential used | same | same |
+| `scope` | `hierarchy:read installations:read readings:read` | `readings:write` | `installations:read installations:write` |
 | `iat` | Issue time | same | same |
 | `exp` | `iat` + 1 hour | `iat` + 1 hour | `iat` + 15 minutes |
 
-Tokens carry no role, jurisdiction, or permission list. On each request the server loads the principal named by `sub` and `principalType`: a staff user's role and province or district come from the `users` row, and a device may write only to the installation in `sub`. Scope changes therefore apply at once, and a deleted principal's token stops working.
+### Scopes
+
+`scope` is a space-delimited list (RFC 6749 section 3.3) saying which operations the token allows. The server grants it from the principal type (`src/config/auth.js`); a client never chooses it, and the token response repeats it.
+
+| Scope | Allows | Granted to |
+| --- | --- | --- |
+| `hierarchy:read` | Provinces, districts, and a district's substation collection | Staff |
+| `installations:read` | A substation, its installations, and installation metadata | Staff, provisioner |
+| `installations:write` | Register, replace, and delete installations | Provisioner |
+| `readings:read` | Reading history, last-known reading, overview, and district summary | Staff |
+| `readings:write` | Submit readings for the device's own installation | Device |
+
+A scope allows an operation; it does not choose the rows. Tokens carry no role or jurisdiction. On each request the server loads the principal named by `sub` and `principalType`: a staff user's role and province or district come from the `users` row, and a device may write only to the installation in `sub`. A jurisdiction change therefore applies at once, and a deleted principal's token stops working.
+
+This is the trade-off between scope-based and attribute-based control. Scopes are coarse and fixed when the token is issued, which makes them cheap to check and easy to read in the token, but a scope such as "read district X" would need one scope per district and would stay valid until the token expired. Which district a reader may see is therefore decided from an attribute of the user (role, province, district) looked up on every request and applied inside the SQL query. A full attribute-based policy engine such as XACML (WSO2 section 12.3) is not used: the only attributes are the reader's jurisdiction and the device's own installation.
 
 A token is also rejected if its `credentialVersion` differs from the stored `credential_version`. The database gives a credential a new random version whenever its hash changes, so changing a password or rotating a device secret invalidates every earlier token, including one issued in the same second. A time comparison such as `iat < changed_at` cannot guarantee that, because `iat` has whole-second precision.
 
@@ -82,12 +97,12 @@ A token is also rejected if its `credentialVersion` differs from the stored `cre
 Protected requests send `Authorization: Bearer <accessToken>`. For every request the server:
 
 1. Rejects a missing header with 401 (code 3002) and `WWW-Authenticate: Bearer realm="solar-generation-api"`.
-2. Verifies the token: HS256 signature only (a token using `none`, another HMAC size, or an RSA algorithm is rejected), `iss`, `aud`, and `exp`, which must be present. `sub` and `credentialVersion` must be UUIDs, `principalType` one of the three types, and `exp - iat` no longer than that type's lifetime.
+2. Verifies the token: HS256 signature only (a token using `none`, another HMAC size, or an RSA algorithm is rejected), `iss`, `aud`, and `exp`, which must be present. `sub` and `credentialVersion` must be UUIDs, `principalType` one of the three types, `scope` exactly the scopes granted to that type, and `exp - iat` no longer than that type's lifetime.
 3. Loads the principal named by `sub` and `principalType` from PostgreSQL and compares its current `credential_version` with the token's.
 
 Any failure in steps 2 and 3 returns the same 401 (code 3003) with `WWW-Authenticate: Bearer realm="solar-generation-api", error="invalid_token"`. This covers tampered, expired, and forged tokens, a changed password or rotated device secret, a deleted principal or credential, and a token whose `sub` belongs to a different principal type.
 
-The loaded principal, not the token, supplies the scope: a staff user's role, the province they may read (their own, or their district's province for a district user), and their district. A scope change therefore applies to the next request made with an existing token. A route that allows only some principal types answers other authenticated principals with 403 (code 3004); for example, a device token cannot be used for staff reads.
+The loaded principal, not the token, supplies the jurisdiction: a staff user's role, the province they may read (their own, or their district's province for a district user), and their district. A jurisdiction change therefore applies to the next request made with an existing token. Each route requires one scope; a token without it gets 403 (code 3004) with `WWW-Authenticate: Bearer realm="solar-generation-api", error="insufficient_scope", scope="<the scope needed>"` (RFC 6750 section 3.1). For example, a device token cannot be used for staff reads.
 
 ## Credential storage
 

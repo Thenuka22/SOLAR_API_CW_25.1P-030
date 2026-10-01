@@ -69,9 +69,9 @@ async function issueTokenHandler(req, res) {
   // One response for an unknown identifier, a missing credential, and a wrong secret.
   if (!principal) throw new ApiError(ERRORS.INVALID_CREDENTIALS);
 
-  const { accessToken, expiresIn } = issueToken(principal);
+  const { accessToken, expiresIn, scope } = issueToken(principal);
   res.set({ 'Cache-Control': 'no-store', Pragma: 'no-cache' });
-  res.json({ accessToken, tokenType: 'Bearer', expiresIn });
+  res.json({ accessToken, tokenType: 'Bearer', expiresIn, scope });
 }
 
 /**

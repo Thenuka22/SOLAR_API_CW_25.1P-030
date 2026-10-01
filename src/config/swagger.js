@@ -36,6 +36,18 @@ const definition = {
       '',
       'Get a token from `POST /solar/v1.0/issue-token`, then send it as `Authorization: Bearer <token>`.',
       'Every error response uses the `Error` schema; `code` is an application code separate from the HTTP status.',
+      '',
+      'Each token carries scopes, granted by the server from the kind of caller:',
+      '',
+      '| Scope | Allows | Granted to |',
+      '| --- | --- | --- |',
+      '| `hierarchy:read` | Provinces, districts, and the substations of a district | Staff |',
+      '| `installations:read` | A substation, its installations, and installation metadata | Staff, provisioner |',
+      '| `installations:write` | Register, replace, and delete installations | Provisioner |',
+      '| `readings:read` | Reading history, last-known reading, overview, and district summary | Staff |',
+      '| `readings:write` | Submit readings for the installation the device belongs to | Device |',
+      '',
+      'A scope allows an operation; it does not choose the rows. The jurisdiction of a staff reader (national, one province, or one district) is loaded from the database on every request, and a device may write only to its own installation.',
     ].join('\n'),
   },
   tags: [
@@ -78,7 +90,7 @@ const definition = {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        description: 'Access token from POST /solar/v1.0/issue-token. Staff and device tokens last 1 hour, provisioner tokens 15 minutes.',
+        description: 'Access token from POST /solar/v1.0/issue-token, carrying a `scope` claim. Staff and device tokens last 1 hour, provisioner tokens 15 minutes.',
       },
     },
     schemas: {
@@ -149,12 +161,17 @@ const definition = {
       },
       TokenResponse: {
         type: 'object',
-        required: ['accessToken', 'tokenType', 'expiresIn'],
+        required: ['accessToken', 'tokenType', 'expiresIn', 'scope'],
         additionalProperties: false,
         properties: {
           accessToken: { type: 'string', description: 'HS256 JWT.' },
           tokenType: { type: 'string', enum: ['Bearer'] },
           expiresIn: { type: 'integer', enum: [900, 3600], description: 'Lifetime in seconds.' },
+          scope: {
+            type: 'string',
+            description: 'Space-delimited scopes carried by the token, granted by the server from the principal type.',
+            example: 'hierarchy:read installations:read readings:read',
+          },
         },
       },
       Province: {
@@ -500,7 +517,7 @@ const definition = {
       Unauthorized: error('Missing (3002) or invalid, expired, or revoked (3003) bearer token.', {
         headers: { 'WWW-Authenticate': { $ref: '#/components/headers/WWWAuthenticate' } },
       }),
-      Forbidden: error('The authenticated principal type may not use this operation (3004).'),
+      Forbidden: error('The token lacks the scope this operation needs (3004); the response then has `WWW-Authenticate: Bearer error="insufficient_scope"` naming that scope. Also returned when a device addresses an installation other than its own.'),
       NotFound: error('Missing, or outside the caller\'s jurisdiction (1005). Both give the same response.'),
       Conflict: error('The request conflicts with stored data: a meter ID that is already registered (4001), a reading that already exists for the installation and instant (4002), or a move or deletion of an installation whose readings must keep their history (4003).'),
       NotAcceptable: error('The Accept header does not allow application/json (1007).'),

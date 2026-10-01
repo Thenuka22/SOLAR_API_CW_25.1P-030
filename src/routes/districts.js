@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../config/db');
 const { ERRORS, ApiError } = require('../errors');
-const { authenticate, requirePrincipal } = require('../middleware/authenticate');
+const { authenticate, requireScope } = require('../middleware/authenticate');
 const { methodNotAllowed } = require('../middleware/errors');
 const { checkQueryNames, parsePage, pageLinks, requireUuid } = require('../http/query');
 const { sendCacheableJson, lastModifiedFrom } = require('../http/conditional');
@@ -10,7 +10,7 @@ const { readerScope, PROVINCE_VISIBLE, DISTRICT_VISIBLE } = require('../auth/sco
 const router = express.Router();
 
 // Authentication and the staff check run before any input is read or data is queried.
-router.use(['/provinces/:provinceId/districts', '/districts'], authenticate, requirePrincipal('staff'));
+router.use(['/provinces/:provinceId/districts', '/districts'], authenticate, requireScope('hierarchy:read'));
 
 /**
  * @openapi
