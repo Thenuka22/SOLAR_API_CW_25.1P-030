@@ -4,8 +4,11 @@ const { ERRORS, ApiError, detail } = require('../errors');
 const { authenticate, requirePrincipal } = require('../middleware/authenticate');
 const { methodNotAllowed } = require('../middleware/errors');
 const { requireJsonBody } = require('../middleware/http');
-const { checkQueryNames, parsePage, pageLinks, requireUuid } = require('../http/query');
-const { sendCacheableJson, lastModifiedFrom } = require('../http/conditional');
+const { checkQueryNames, parsePage, pageLinks, isUuid, requireUuid } = require('../http/query');
+const {
+  sendCacheableJson, lastModifiedFrom, writePreconditionsHold, setWriteValidators,
+} = require('../http/conditional');
+const { withTransaction } = require('../db/transaction');
 const { readerScope, metadataScope, DISTRICT_VISIBLE } = require('../auth/scope');
 const {
   PROVINCE_JSON, DISTRICT_JSON, SUBSTATION_JSON, INSTALLATION_JSON, READING_JSON,
@@ -29,7 +32,10 @@ function validateInstallationBody(body, allowed) {
     .filter((field) => !allowed.includes(field))
     .map((field) => detail('body', field, 'Unknown or read-only field.'));
 
-  const { meterId, address = null, capacityKw } = body;
+  const { substationId, meterId, address = null, capacityKw } = body;
+  if (allowed.includes('substationId') && !isUuid(substationId)) {
+    problems.push(detail('body', 'substationId', 'substationId must be a UUID.'));
+  }
   if (typeof meterId !== 'string' || meterId.trim() === '' || meterId.trim().length > MAX_METER_ID_LENGTH) {
     problems.push(detail('body', 'meterId', `meterId must be a non-blank string of at most ${MAX_METER_ID_LENGTH} characters.`));
   }
@@ -43,7 +49,7 @@ function validateInstallationBody(body, allowed) {
       `capacityKw must be a number greater than 0 and at most ${MAX_CAPACITY_KW}, with at most 3 decimal places.`));
   }
   if (problems.length > 0) throw new ApiError(ERRORS.VALIDATION_FAILED, { details: problems });
-  return { meterId: meterId.trim(), address, capacityKw };
+  return { substationId: substationId?.toLowerCase(), meterId: meterId.trim(), address, capacityKw };
 }
 
 // 409 for a unique violation on the meter ID, which can also come from a concurrent request.
@@ -252,6 +258,67 @@ router
  *         $ref: '#/components/responses/NotAcceptable'
  *       500:
  *         $ref: '#/components/responses/InternalError'
+ *   put:
+ *     tags: [Installations]
+ *     summary: Replace an installation's metadata
+ *     description: |
+ *       Provisioner only. A full replacement: `substationId`, `meterId`, and `capacityKw` are
+ *       required, and an omitted `address` becomes null; partial bodies and read-only fields
+ *       such as `id` are rejected. It never creates an installation, so a missing one returns
+ *       404.
+ *
+ *       `If-Match` (strong comparison with the ETag from a GET) or, without it,
+ *       `If-Unmodified-Since` (the Last-Modified from a GET) are checked in the same transaction
+ *       as the update, with the row locked; a failed condition returns 412 and changes nothing.
+ *       Conditions are optional, but without them a client may overwrite a newer version.
+ *
+ *       Moving the installation to another substation after it has readings returns 409 (4003),
+ *       because its history would appear under another jurisdiction. A `substationId` that names
+ *       no substation returns 400. A meter ID that another installation has returns 409 (4001).
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/installationId'
+ *       - $ref: '#/components/parameters/ifMatch'
+ *       - $ref: '#/components/parameters/ifUnmodifiedSince'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/InstallationReplace'
+ *     responses:
+ *       200:
+ *         description: The updated installation, with the validators a GET would now return.
+ *         headers:
+ *           ETag:
+ *             $ref: '#/components/headers/ETag'
+ *           Last-Modified:
+ *             $ref: '#/components/headers/LastModified'
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Installation'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       406:
+ *         $ref: '#/components/responses/NotAcceptable'
+ *       409:
+ *         $ref: '#/components/responses/Conflict'
+ *       412:
+ *         $ref: '#/components/responses/PreconditionFailed'
+ *       413:
+ *         $ref: '#/components/responses/PayloadTooLarge'
+ *       415:
+ *         $ref: '#/components/responses/UnsupportedMediaType'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
  */
 router
   .route('/installations/:installationId')
@@ -272,7 +339,59 @@ router
     // The body depends only on this row, so its updated_at is a reliable Last-Modified.
     sendCacheableJson(req, res, installation, { lastModified: lastModifiedFrom(updatedAt, now) });
   })
-  .all(methodNotAllowed('GET', 'HEAD'));
+  .put(requirePrincipal('provisioner'), requireJsonBody, async (req, res) => {
+    checkQueryNames(req, []);
+    const id = requireUuid(req.params.installationId, 'installation-id');
+    const values = validateInstallationBody(req.body, ['substationId', 'meterId', 'address', 'capacityKw']);
+
+    const { installation, lastModified } = await withTransaction(async (db) => {
+      // Lock the row, so the condition check, the history check, and the update see one version.
+      // A first reading's insert waits for this lock too (migration 005).
+      const current = (await db.query(
+        `SELECT ${INSTALLATION_JSON} AS installation, i.updated_at,
+                EXISTS (SELECT 1 FROM generation_readings r WHERE r.installation_id = i.id) AS has_readings
+         FROM solar_installations i WHERE i.id = $1 FOR UPDATE`,
+        [id],
+      )).rows[0];
+      // PUT replaces an existing installation; it never creates one.
+      if (!current) throw new ApiError(ERRORS.RESOURCE_NOT_FOUND);
+      if (!writePreconditionsHold(req, current.installation, current.updated_at)) {
+        throw new ApiError(ERRORS.PRECONDITION_FAILED);
+      }
+      if (values.substationId !== current.installation.substationId) {
+        const target = (await db.query('SELECT 1 FROM grid_substations WHERE id = $1', [values.substationId])).rows[0];
+        if (!target) {
+          throw new ApiError(ERRORS.VALIDATION_FAILED, {
+            details: [detail('body', 'substationId', 'No substation has this ID.')],
+          });
+        }
+        // Moving would show the existing history under another substation and jurisdiction.
+        if (current.has_readings) {
+          throw new ApiError(ERRORS.INSTALLATION_HAS_READINGS, {
+            details: [detail('body', 'substationId', 'An installation with readings cannot move to another substation.')],
+          });
+        }
+      }
+      // The trigger sets updated_at from clock_timestamp(), after this statement started, so
+      // compare it with the clock after the update rather than statement_timestamp().
+      let updated;
+      try {
+        updated = (await db.query(
+          `UPDATE solar_installations AS i
+           SET substation_id = $2, meter_id = $3, address = $4, capacity_kw = $5
+           WHERE i.id = $1
+           RETURNING ${INSTALLATION_JSON} AS installation, i.updated_at, clock_timestamp() AS now`,
+          [id, values.substationId, values.meterId, values.address, values.capacityKw],
+        )).rows[0];
+      } catch (err) {
+        throw meterIdConflict(err);
+      }
+      return { installation: updated.installation, lastModified: lastModifiedFrom(updated.updated_at, updated.now) };
+    });
+    setWriteValidators(res, installation, lastModified);
+    res.json(installation);
+  })
+  .all(methodNotAllowed('GET', 'HEAD', 'PUT'));
 
 /**
  * @openapi

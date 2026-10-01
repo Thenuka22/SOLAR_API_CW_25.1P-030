@@ -37,6 +37,7 @@ const OPERATIONS = {
   },
   '/solar/v1.0/installations/{installation-id}': {
     get: ['200', '304', '400', '401', '403', '404', '406', '500'],
+    put: ['200', '400', '401', '403', '404', '406', '409', '412', '413', '415', '500'],
   },
   '/solar/v1.0/installations/{installation-id}/readings': {
     get: ['200', '304', '400', '401', '403', '404', '406', '500'],
@@ -256,6 +257,18 @@ describe('live responses match their documented operation', {
       ['/solar/v1.0/readings', 'get', await read(`/readings?district-id=${MISSING_ID}`, provincial)],
       ['/solar/v1.0/readings', 'get', await read('/readings?district-id=x', provincial)],
       ['/solar/v1.0/readings', 'get', await read('/readings', provisioner)],
+      ['/solar/v1.0/installations/{installation-id}', 'put',
+        await send('PUT', `/installations/${fixture.device.id}`, provisioner, { substationId: galleSubstationId, meterId: 'OPENAPI-PUT', capacityKw: 2 })],
+      ['/solar/v1.0/installations/{installation-id}', 'put',
+        await send('PUT', `/installations/${fixture.device.id}`, provisioner, { meterId: 'OPENAPI-PUT' })],
+      ['/solar/v1.0/installations/{installation-id}', 'put',
+        await fetch(`${base}/installations/${fixture.device.id}`, {
+          method: 'PUT',
+          headers: { Authorization: `Bearer ${provisioner}`, 'Content-Type': 'application/json', 'If-Match': '"stale"' },
+          body: JSON.stringify({ substationId: galleSubstationId, meterId: 'OPENAPI-PUT', capacityKw: 3 }),
+        })],
+      ['/solar/v1.0/installations/{installation-id}', 'put',
+        await send('PUT', `/installations/${MISSING_ID}`, provisioner, { substationId: galleSubstationId, meterId: 'OPENAPI-PUT-2', capacityKw: 3 })],
     ];
 
     const ajv = new Ajv({ strict: false, validateFormats: false });

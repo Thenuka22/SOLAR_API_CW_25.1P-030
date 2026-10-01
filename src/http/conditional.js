@@ -1,5 +1,16 @@
 const crypto = require('crypto');
 
+// Strong ETag from a hash of the exact JSON text sent. GET and PUT responses for the same
+// representation therefore get the same tag.
+function etagOf(json) {
+  return `"${crypto.createHash('sha256').update(json).digest('base64url')}"`;
+}
+
+// HTTP-dates have whole-second precision.
+function toSeconds(date) {
+  return date ? Math.floor(date.getTime() / 1000) : null;
+}
+
 // Sends a JSON representation with validators, or 304 when the client's copy is current.
 // Call it only after authentication, authorization, and the scoped query, so validators are
 // computed from data the caller may see.
@@ -16,11 +27,10 @@ const crypto = require('crypto');
 // - If-None-Match takes precedence: when present, If-Modified-Since is ignored.
 function sendCacheableJson(req, res, body, { lastModified = null } = {}) {
   const json = JSON.stringify(body);
-  const etag = `"${crypto.createHash('sha256').update(json).digest('base64url')}"`;
+  const etag = etagOf(json);
   res.set({ ETag: etag, 'Cache-Control': 'private, no-cache', Vary: 'Authorization' });
 
-  // HTTP-dates have whole-second precision.
-  const modifiedSeconds = lastModified ? Math.floor(lastModified.getTime() / 1000) : null;
+  const modifiedSeconds = toSeconds(lastModified);
   if (modifiedSeconds !== null) res.set('Last-Modified', new Date(modifiedSeconds * 1000).toUTCString());
 
   if (isNotModified(req, etag, modifiedSeconds)) {
@@ -56,4 +66,36 @@ function isNotModified(req, etag, modifiedSeconds) {
   return false;
 }
 
-module.exports = { sendCacheableJson, lastModifiedFrom };
+// Whether the If-Match and If-Unmodified-Since conditions of a write hold for the current
+// representation `body` and its modification time `updatedAt` (RFC 9110 section 13.2.2).
+// Call it inside the transaction that holds the row lock, so nothing changes between the check
+// and the write.
+// - If-Match uses strong comparison: a weak tag (W/"x") never matches. "*" matches any
+//   current representation. When present, If-Unmodified-Since is ignored.
+// - If-Unmodified-Since holds when the row has not changed after that second. An invalid date
+//   is ignored.
+function writePreconditionsHold(req, body, updatedAt) {
+  const ifMatch = req.get('If-Match');
+  if (ifMatch !== undefined) {
+    if (ifMatch.trim() === '*') return true;
+    const etag = etagOf(JSON.stringify(body));
+    return ifMatch.split(',').some((tag) => tag.trim() === etag);
+  }
+
+  const ifUnmodifiedSince = req.get('If-Unmodified-Since');
+  if (ifUnmodifiedSince !== undefined) {
+    const since = Date.parse(ifUnmodifiedSince);
+    if (!Number.isNaN(since)) return toSeconds(updatedAt) <= Math.floor(since / 1000);
+  }
+  return true;
+}
+
+// Validators for a representation returned by a successful write, matching what a GET would
+// send for it.
+function setWriteValidators(res, body, lastModified) {
+  res.set('ETag', etagOf(JSON.stringify(body)));
+  const modifiedSeconds = toSeconds(lastModified);
+  if (modifiedSeconds !== null) res.set('Last-Modified', new Date(modifiedSeconds * 1000).toUTCString());
+}
+
+module.exports = { sendCacheableJson, lastModifiedFrom, writePreconditionsHold, setWriteValidators };

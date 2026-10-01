@@ -15,6 +15,7 @@ async function startApiFixture() {
 
   const oldJwtSecret = process.env.JWT_SECRET;
   const originalPoolQuery = pool.query;
+  const originalPoolConnect = pool.connect;
   const db = new Client({ connectionString: process.env.DATABASE_URL });
   let server;
 
@@ -72,8 +73,14 @@ async function startApiFixture() {
     const provisioner = { id: provisionerRow.id, username, credentialVersion: provisionerRow.credential_version };
 
     // The app and these fixtures share one transaction. Every HTTP write remains invisible to
-    // other connections and is rolled back when the test file finishes.
+    // other connections and is rolled back when the test file finishes. A transaction the app
+    // opens with pool.connect() (src/db/transaction.js) becomes a savepoint inside it.
     pool.query = db.query.bind(db);
+    const asSavepoint = { BEGIN: 'SAVEPOINT app_transaction', COMMIT: 'RELEASE SAVEPOINT app_transaction', ROLLBACK: 'ROLLBACK TO SAVEPOINT app_transaction' };
+    pool.connect = async () => ({
+      query: (text, params) => db.query(asSavepoint[text] ?? text, params),
+      release() {},
+    });
     server = await new Promise((resolve) => {
       const listener = app.listen(0, '127.0.0.1', () => resolve(listener));
     });
@@ -98,6 +105,7 @@ async function startApiFixture() {
       async close() {
         await new Promise((resolve) => server.close(resolve));
         pool.query = originalPoolQuery;
+        pool.connect = originalPoolConnect;
         try {
           await db.query('ROLLBACK');
         } finally {
@@ -109,6 +117,7 @@ async function startApiFixture() {
     };
   } catch (err) {
     pool.query = originalPoolQuery;
+    pool.connect = originalPoolConnect;
     if (server) await new Promise((resolve) => server.close(resolve));
     try {
       await db.query('ROLLBACK');

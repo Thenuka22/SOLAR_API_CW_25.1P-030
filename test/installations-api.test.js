@@ -195,7 +195,7 @@ describe('installation metadata reads', { skip }, () => {
     assert.equal(await head.text(), '');
     for (const [path, allow] of [
       [`/grid-substations/${colomboSubstationId}/installations`, 'GET, HEAD, POST'],
-      [`/installations/${fixture.device.id}`, 'GET, HEAD'],
+      [`/installations/${fixture.device.id}`, 'GET, HEAD, PUT'],
     ]) {
       const res = await read(path, token, {}, 'PATCH');
       assert.equal(res.status, 405, path);

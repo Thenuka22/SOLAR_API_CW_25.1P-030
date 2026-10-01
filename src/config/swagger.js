@@ -282,6 +282,18 @@ const definition = {
           voltage: { type: 'number', minimum: 0, maximum: 99999.99, description: 'V, at most 2 decimal places.', example: 231.4 },
         },
       },
+      InstallationReplace: {
+        type: 'object',
+        required: ['substationId', 'meterId', 'capacityKw'],
+        additionalProperties: false,
+        description: 'The complete writable metadata. An omitted address is stored as null.',
+        properties: {
+          substationId: { type: 'string', format: 'uuid' },
+          meterId: { type: 'string', minLength: 1, maxLength: 254, example: 'MTR-0201' },
+          address: { type: 'string', nullable: true, minLength: 1, example: 'No. 7, Lake Road, Kolonnawa' },
+          capacityKw: { type: 'number', minimum: 0.001, maximum: 9999999.999, description: 'Rated capacity in kW, greater than 0, at most 3 decimal places.', example: 6.6 },
+        },
+      },
       InstallationCollection: {
         type: 'object',
         required: ['count', 'next', 'previous', 'results'],
@@ -381,6 +393,18 @@ const definition = {
         description: 'ETag(s) from an earlier response; weak comparison; takes precedence over If-Modified-Since.',
         schema: { type: 'string' },
       },
+      ifMatch: {
+        name: 'If-Match',
+        in: 'header',
+        description: 'ETag(s) of the version the change is based on, or `*`; strong comparison; takes precedence over If-Unmodified-Since.',
+        schema: { type: 'string' },
+      },
+      ifUnmodifiedSince: {
+        name: 'If-Unmodified-Since',
+        in: 'header',
+        description: 'HTTP-date, normally the Last-Modified of the version the change is based on. Ignored when If-Match is sent.',
+        schema: { type: 'string' },
+      },
       ifModifiedSince: {
         name: 'If-Modified-Since',
         in: 'header',
@@ -413,9 +437,10 @@ const definition = {
       }),
       Forbidden: error('The authenticated principal type may not use this operation (3004).'),
       NotFound: error('Missing, or outside the caller\'s jurisdiction (1005). Both give the same response.'),
-      Conflict: error('The request conflicts with stored data: a meter ID that is already registered (4001), or a reading that already exists for the installation and instant (4002).'),
+      Conflict: error('The request conflicts with stored data: a meter ID that is already registered (4001), a reading that already exists for the installation and instant (4002), or a change to an installation whose readings must keep their history (4003).'),
       NotAcceptable: error('The Accept header does not allow application/json (1007).'),
       UnsupportedMediaType: error('The body is not application/json (1008), or uses an unsupported charset or content encoding (1004).'),
+      PreconditionFailed: error('If-Match or If-Unmodified-Since does not hold for the current version (1010). Nothing was changed.'),
       PayloadTooLarge: error('The body is larger than 100 KB (1003).'),
       TooManyRequests: error('Rate limit exceeded (1009).', {
         headers: {

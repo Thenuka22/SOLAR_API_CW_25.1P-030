@@ -35,6 +35,6 @@ Request -> input parsing -> authentication -> permission checks -> route/service
 | Database queries | Apply jurisdiction filters, use parameterized SQL, handle transactions |
 | PostgreSQL | Store records and enforce relationships, uniqueness, and value constraints |
 
-A device writes its own readings. SLSEA readers query their permitted jurisdictions. Both use the same application and database; they have different permissions, not separate deployed services. Authorization also covers counts, summaries, and cache validators. Write preconditions are checked in the same transaction as the change.
+A device writes its own readings. SLSEA readers query their permitted jurisdictions. Both use the same application and database; they have different permissions, not separate deployed services. Authorization also covers counts, summaries, and cache validators. Write preconditions are checked in the same transaction as the change, using `src/db/transaction.js`, with the row locked.
 
 The [domain model](domain-model.md) defines stored data. [API Endpoints](api-endpoints.md) defines HTTP operations. The [guidelines](api-guidelines.md) explain the design rules. Keep access checks in [Security](security.md) and acceptance checks in [Testing](testing.md).

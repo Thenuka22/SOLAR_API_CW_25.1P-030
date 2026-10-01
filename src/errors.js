@@ -18,6 +18,7 @@ const ERRORS = {
   NOT_ACCEPTABLE: { code: 1007, status: 406, message: 'The API can only respond with application/json.' },
   UNSUPPORTED_MEDIA_TYPE: { code: 1008, status: 415, message: 'The request body must be application/json.' },
   TOO_MANY_REQUESTS: { code: 1009, status: 429, message: 'Too many requests. Try again later.' },
+  PRECONDITION_FAILED: { code: 1010, status: 412, message: 'The resource has changed since the version named in the request conditions.' },
   VALIDATION_FAILED: { code: 2001, status: 400, message: 'The request is not valid.' },
   // 400, not 401: the token endpoint takes credentials in the JSON body, and no WWW-Authenticate
   // challenge describes that (RFC 9110 section 11.6.1). OAuth 2.0 uses 400 invalid_grant for the
@@ -28,6 +29,7 @@ const ERRORS = {
   FORBIDDEN: { code: 3004, status: 403, message: 'You do not have permission for this operation.' },
   METER_ID_TAKEN: { code: 4001, status: 409, message: 'Another installation already has this meter ID.' },
   READING_EXISTS: { code: 4002, status: 409, message: 'The installation already has a reading at this timestamp.' },
+  INSTALLATION_HAS_READINGS: { code: 4003, status: 409, message: 'The installation has readings, so this change would alter its history.' },
 };
 
 class ApiError extends Error {
