@@ -1,12 +1,12 @@
 # API Endpoints
 
-Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, `GET /districts/{district-id}`, `GET /districts/{district-id}/grid-substations`, `GET /grid-substations/{substation-id}`, `GET` and `POST /grid-substations/{substation-id}/installations`, `GET`, `PUT`, and `DELETE /installations/{installation-id}`, `GET` and `POST /installations/{installation-id}/readings`, `GET /installations/{installation-id}/readings/{reading-id}`, `GET /installations/{installation-id}/last-known-reading`, `GET /installations/{installation-id}/overview`, `GET /readings`, and `POST /summarize-district-generation` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
+Base path: `/solar/v1.0`. Every endpoint on this page is implemented: `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, `GET /districts/{district-id}`, `GET /districts/{district-id}/grid-substations`, `GET /grid-substations/{substation-id}`, `GET` and `POST /grid-substations/{substation-id}/installations`, `GET`, `PUT`, and `DELETE /installations/{installation-id}`, `GET` and `POST /installations/{installation-id}/readings`, `GET /installations/{installation-id}/readings/{reading-id}`, `GET /installations/{installation-id}/last-known-reading`, `GET /installations/{installation-id}/overview`, `GET /readings`, and `POST /summarize-district-generation`, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes these operations, with their request and response schemas, headers, and error responses.
 
 All path IDs are UUIDs. JSON uses camelCase: for example, the model's `power_kw` becomes `powerKw`. Requests and responses use `application/json`.
 
 ## Read endpoints
 
-These require a reader token and return only data within that reader's jurisdiction. The provisioner can also read a substation, its installation collection, and individual installation metadata; it cannot read measurements. See [permissions](security.md).
+These require a staff reader's token and return only data within that reader's jurisdiction. The provisioner can also read a substation, its installation collection, and individual installation metadata; it cannot read measurements. See [permissions](security.md).
 
 Every GET below can return 304 for an unchanged conditional request, with no body. Otherwise a successful request returns 200 with the result shown.
 
@@ -101,9 +101,9 @@ Combine regional filters with AND. Valid filters with no visible matches return 
 
 | Method | Path | Caller and input | Success | Errors |
 | --- | --- | --- | --- | --- |
-| POST | `/installations/{installation-id}/readings` | Owning device; `timestamp`, `powerKw`, `energyKwh`, `voltage` | 201, created reading, Location | 400, 401, 403, 404, 406, 409, 415 |
-| POST | `/grid-substations/{substation-id}/installations` | Provisioner; `meterId`, `address`, `capacityKw` | 201, created installation, Location | 400, 401, 403, 404, 406, 409, 415 |
-| PUT | `/installations/{installation-id}` | Provisioner; complete writable metadata: `substationId`, `meterId`, `address`, `capacityKw` | 200, updated installation | 400, 401, 403, 404, 406, 409, 412, 415 |
+| POST | `/installations/{installation-id}/readings` | Owning device; `timestamp`, `powerKw`, `energyKwh`, `voltage` | 201, created reading, Location | 400, 401, 403, 404, 406, 409, 413, 415 |
+| POST | `/grid-substations/{substation-id}/installations` | Provisioner; `meterId`, `address`, `capacityKw` | 201, created installation, Location | 400, 401, 403, 404, 406, 409, 413, 415 |
+| PUT | `/installations/{installation-id}` | Provisioner; complete writable metadata: `substationId`, `meterId`, `address`, `capacityKw` | 200, updated installation | 400, 401, 403, 404, 406, 409, 412, 413, 415 |
 | DELETE | `/installations/{installation-id}` | Provisioner; path ID, no request body | 200, deletion receipt | 400, 401, 403, 404, 406, 409, 412 |
 
 - Creation derives the parent from the path. The server generates the resource ID. Location uses the canonical individual URL from the read table. As WSO2 sections 7.3 and 9 recommend, the 201 response also carries the ETag a GET of the new resource would return, its Last-Modified where that GET has one (installations, not readings), and a Content-Location equal to Location, because the body is that representation.

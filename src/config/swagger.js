@@ -2,8 +2,7 @@ const path = require('path');
 const swaggerJsdoc = require('swagger-jsdoc');
 
 // OpenAPI document served at /api-docs. Shared components live here; each operation is
-// documented by an @openapi comment next to its route in src/routes/. Only implemented
-// endpoints are documented; planned ones are in docs/api-endpoints.md.
+// documented by an @openapi comment next to its route in src/routes/.
 
 const error = (description, extra = {}) => ({
   description,

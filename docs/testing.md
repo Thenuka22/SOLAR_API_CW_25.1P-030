@@ -1,32 +1,43 @@
 # Testing
 
-These checks are planned, not recorded passes, except where listed under [Recorded results](#recorded-results). Add the command and actual result when each feature is implemented.
+Run the automated tests with `npm test` (Node's built-in test runner, every `*.test.js` file under `test/`). The checks below are recorded results, not plans; anything not yet verified is listed under [Not verified](#not-verified).
 
-| Area | Check |
-| --- | --- |
-| Startup | Importing the app opens no port; server honours PORT; root and Swagger assets load |
-| Data | Foreign keys, User scope rules, unique meters, unique installation/timestamp pairs, immutable history |
-| Endpoints | Method, status, headers, and JSON match [API Endpoints](api-endpoints.md) and OpenAPI schemas |
-| Invalid input | Malformed JSON, invalid UUIDs/dates/numbers, unknown fields/queries, unsupported Accept and Content-Type |
-| Permissions | Each role's allowed and denied operations; cross-device writes; cross-jurisdiction IDs, counts, links, summaries, and overviews |
-| Collections | Empty results, missing parents, pagination boundaries, timestamp ordering, filters, preserved page links |
-| Conditions | Empty 304, header precedence, changed embedded data, stale writes, authorization before cache validation |
-| Races | Concurrent duplicate submissions create at most one reading; conditional updates do not overwrite a newer version |
-| Calculations | Independent energy differences, late arrivals, Sri Lankan midnight, stale/missing measurements, counter anomalies |
-| Deployment | Public HTTPS, Swagger assets, authentication, database persistence after redeployment |
+## How the tests run
 
-Use real PostgreSQL for integration tests. Keep small arithmetic fixtures independent of the calculation function under test. Put empty parents and invalid records in isolated fixtures.
+- HTTP tests start the Express app on a temporary local port and call it with `fetch`, so routing, middleware, headers, and JSON bodies are exercised as a client sees them.
+- Tests that need data use real PostgreSQL through `DATABASE_URL`, after `npm run db:migrate` and `npm run db:seed`. `test/helpers/apiFixture.js` opens one connection, starts a transaction, creates its own staff users, device, and provisioner, and points the app's pool at that connection. Every write is rolled back when the file finishes, so the seeded data is never changed. These tests are skipped when `DATABASE_URL` is not set.
+- A transaction the app opens becomes a savepoint inside the fixture's transaction. Tests that expect a database error, or that change a row other tests read, run inside their own savepoint.
+- The summary calculation has no database access and is tested with small hand-worked numbers, independent of the function under test.
 
-The demonstration seed contains 9 provinces, 25 districts, 35 substations, and 200 installations. Every district has a substation, and the extra ten are spread across selected districts. Readings cover 2026-09-01 00:00 to 2026-09-08 00:00 Sri Lanka time (+05:30), start inclusive and end exclusive, every 15 minutes: 672 per installation and 134,400 in total. Values come from md5 hashes of meter IDs, districts, and times rather than a random generator, so every run and database gets the same readings. Power is 0 at night and follows a daylight curve; energy is cumulative and never decreases. The last sample is 23:45 on 7 September, which closes the half-open window. Whether a daily energy summary also needs the next day's 00:00 reading is a rule for the summary calculation, not a gap in the seed.
+## Seed data the tests rely on
 
-Inspect query plans on the full seed and run a bounded local load test at 25 concurrent clients. Record latency and errors; accept no unexpected server errors, corruption, or permission leakage. Avoid heavy tests on free hosting and never reset deployed data silently.
+The demonstration seed contains 9 provinces, 25 districts, 35 substations, and 200 installations. Every district has a substation, and the extra ten are spread across selected districts. Readings cover 2026-09-01 00:00 to 2026-09-08 00:00 Sri Lanka time (+05:30), start inclusive and end exclusive, every 15 minutes: 672 per installation and 134,400 in total. Values come from md5 hashes of meter IDs, districts, and times rather than a random generator, so every run and database gets the same readings. Power is 0 at night and follows a daylight curve; energy is cumulative and never decreases.
+
+The last sample is 23:45 on 7 September. The [district summary](api-endpoints.md#district-generation-summary) needs a sample at the next midnight to close a day, so 1 to 6 September are complete days and 7 September is reported as partial. That is the summary's rule, not a gap in the seed.
 
 ## Recorded results
 
-Run the automated tests with `npm test` (Node's built-in test runner). Tests under `test/db/` use `DATABASE_URL` after `npm run db:migrate` and `npm run db:seed`; they run inside one transaction that is rolled back, and are skipped when `DATABASE_URL` is not set.
+`npm test` on 2026-10-01 against the development database: 185 tests in 24 suites, 185 passed, 0 failed, 0 skipped.
 
-| Area | Test file | Result |
+| Area | Test file | What it checks |
 | --- | --- | --- |
-| Error format | `test/errors.test.js` | 17 passed, 0 failed on 2026-09-30: root and Swagger still served; unknown path 404; unsupported method 405 with Allow; malformed or non-object JSON 400; oversized body 413; unsupported charset or content encoding 415; bad path encoding 400; unexpected errors give a generic 500 without internal details |
-| Credential hashing | `test/credentialHash.test.js` | 8 passed, 0 failed on 2026-09-30: documented PHC format, random salt, right and wrong secrets, stored parameters honoured, NFC-equivalent secrets, malformed or out-of-range stored hashes rejected, device secret format |
-| Credential tables | `test/db/credentials.test.js` | 17 passed, 0 failed on 2026-09-30 against the development database: only hash columns, plaintext and other non-scrypt values rejected in every hash column, null hashes, foreign keys, one credential per user and installation, provisioner username rules, `changed_at` set by the database and advanced only by a hash change, cascade on delete, and a credential kept for an installation with readings |
+| Error format | `test/errors.test.js` | Root and Swagger still served; `nosniff` on every response and no `X-Powered-By`; unknown path 404; unsupported method 405 with Allow; malformed or non-object JSON 400; oversized body 413; unsupported charset or content encoding 415; bad path encoding 400; unexpected errors give a generic 500 without internal details |
+| Credential hashing | `test/credentialHash.test.js` | PHC format, random salt, right and wrong secrets, stored parameters honoured, NFC-equivalent secrets, malformed or out-of-range stored hashes rejected, device secret format |
+| Credential tables | `test/db/credentials.test.js` | Only hash columns; plaintext and other non-scrypt values rejected; foreign keys; one credential per user and installation; provisioner username rules; `changed_at` and credential versions; cascade on delete; a credential kept for an installation with readings |
+| Timestamps | `test/db/provinceTimestamp.test.js`, `test/timestamps.test.js` | `updated_at` moves to a later second on every real change; RFC 3339 parsing with offsets; local times and impossible dates rejected |
+| Tokens and scopes | `test/auth-api.test.js`, `test/token-ip-rate.test.js` | Claims, lifetimes, and scope for each principal; identical failure body for every sign-in failure; algorithm, issuer, audience, expiry, and claim checks; a token with altered scopes rejected; 403 with an `insufficient_scope` challenge on ten operations; revocation on a credential change; rate limits per identifier and per address |
+| Hierarchy reads | `test/provinces-api.test.js`, `test/districts-api.test.js`, `test/substations-api.test.js`, `test/installations-api.test.js` | Each role sees only its jurisdiction; out-of-scope resources give the same 404 as missing ones; empty collections; pagination with count, next, and previous; ETag and Last-Modified; 304; HEAD and 405 |
+| Installation writes | `test/installation-create-api.test.js`, `test/installation-replace-api.test.js`, `test/installation-delete-api.test.js` | 201 with Location and validators; duplicate meter 409; full replacement only; If-Match and If-Unmodified-Since with precedence, 412 and nothing changed; move blocked after readings; delete receipt, repeat 404, 409 when readings exist and readings untouched, credential removed |
+| Readings | `test/reading-ingest-api.test.js`, `test/reading-history-api.test.js`, `test/last-known-reading-api.test.js`, `test/regional-readings-api.test.js`, `test/overview-api.test.js` | Owning device only; duplicate instant 409 in any offset; precision limits; readings more than 5 minutes ahead rejected; the seeded week counted, ordered both ways, windowed, and paged without gaps; latest by measurement time; region filters combined with AND; authorization before counts, links, and 304s; composite overview |
+| Summary calculation | `test/districtSummary.test.js` | Complete, partial, missing, and anomalous installations; separate totals; reset at the closing midnight; unordered samples; zero versus no data; exact decimal sums and the safe-range guard; fresh, stale, and future-dated power |
+| Summary endpoint | `test/district-summary-api.test.js` | A seeded complete day equals the meter differences computed separately in SQL; 7 September partial up to 23:45; a day without readings gives nulls; jurisdiction 404s; device and provisioner 403; input, media type, and method errors |
+| End to end | `test/end-to-end.test.js` | Real sign-in for each principal: register an installation, set a device secret, ingest a reading, read it in history, last-known, overview, and summary, then find deletion refused |
+| OpenAPI | `test/openapi.test.js` | The document validates as OpenAPI 3.0.3 and lists exactly the implemented operations; live responses for every operation match their documented status, headers, and schema; Swagger UI serves the paths |
+
+Query plans on the full seed, measured with `EXPLAIN ANALYZE`: a national reader's unfiltered week takes about 170 ms in the database and a one-day window about 25 ms, using the index on (`timestamp`, `id`).
+
+## Not verified
+
+- **Concurrent writes.** The fixture uses one connection, so two requests never truly race. Duplicate readings and meter IDs rely on unique indexes, and conditional PUT and DELETE rely on the row lock taken in the same transaction; neither has been shown with two real connections. This needs a disposable database, because the rows must be committed, and it was not run against the shared one.
+- **Load.** No load test has been run.
+- **Deployment.** The checks on the public URL (HTTPS, Swagger, sign-in, seeded reads) are recorded in the README once made.

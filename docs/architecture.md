@@ -4,7 +4,7 @@ The backend is one Express application with PostgreSQL for storage. Render runs 
 
 ## What exists now
 
-`src/server.js` loads environment variables and starts the listener. `src/app.js` exports the Express app, parses JSON, returns the root status response, and serves Swagger UI at `/api-docs`. The OpenAPI 3.0.3 document is built by `src/config/swagger.js`: shared components (the `Error` schema, bearer security scheme, parameters, headers, and common error responses) are defined there, and each operation is described by an `@openapi` comment next to its route in `src/routes/`. API routes are mounted under `/solar/v1.0`, where every request must accept JSON; so far `src/routes/tokens.js` issues access tokens, using `src/auth/` for credential checks and signing and `src/middleware/rateLimits.js` for rate limits. `src/middleware/authenticate.js` verifies bearer tokens and loads the current principal and scope from PostgreSQL for protected routes. `src/routes/provinces.js`, `src/routes/districts.js`, `src/routes/substations.js`, and `src/routes/installations.js` serve scoped province, district, substation, and installation reads and the installation overview, with shared JSON representations in `src/db/representations.js`, and `src/routes/readings.js` takes device readings and serves installation and regional reading history and the last-known reading, with the jurisdiction conditions in `src/auth/scope.js`, using `src/http/query.js` for query and path validation and page links and `src/http/conditional.js` for validators and 304 responses. Express's automatic ETags are turned off, so only these domain GETs carry validators. Unmatched paths and all errors go through `src/middleware/errors.js`, which returns the JSON [error format](api-endpoints.md#error-format) using the code catalogue in `src/errors.js`. The shared PostgreSQL pool in `src/config/db.js` is used by the token route.
+`src/server.js` loads environment variables and starts the listener. `src/app.js` exports the Express app, parses JSON, returns the root status response, and serves Swagger UI at `/api-docs`. The OpenAPI 3.0.3 document is built by `src/config/swagger.js`: shared components (the `Error` schema, bearer security scheme, parameters, headers, and common error responses) are defined there, and each operation is described by an `@openapi` comment next to its route in `src/routes/`. API routes are mounted under `/solar/v1.0`, where every request must accept JSON; `src/routes/tokens.js` issues access tokens, using `src/auth/` for credential checks and signing and `src/middleware/rateLimits.js` for rate limits. `src/middleware/authenticate.js` verifies bearer tokens, loads the current principal and its jurisdiction from PostgreSQL for protected routes, and checks the token scope each route requires. `src/routes/provinces.js`, `src/routes/districts.js`, `src/routes/substations.js`, and `src/routes/installations.js` serve scoped province, district, substation, and installation reads, installation create, replace, and delete, and the installation overview, with shared JSON representations in `src/db/representations.js`, and `src/routes/readings.js` takes device readings and serves installation and regional reading history and the last-known reading, with the jurisdiction conditions in `src/auth/scope.js`, using `src/http/query.js` for query and path validation and page links and `src/http/conditional.js` for validators, 304 responses, and write preconditions. `src/routes/summaries.js` serves the district generation summary; it reads the data in one statement and passes it to `src/services/districtSummary.js`, a calculation with no database access. Express's automatic ETags are turned off, so only these domain GETs carry validators. Unmatched paths and all errors go through `src/middleware/errors.js`, which returns the JSON [error format](api-endpoints.md#error-format) using the code catalogue in `src/errors.js`. Every route uses the shared PostgreSQL pool in `src/config/db.js`.
 
 The schema is built by numbered SQL migrations in `src/db/migrations/`, applied with `npm run db:migrate` (see the [project README](../README.md#database-migrations)). They create tables for the six [domain model](domain-model.md) entities and for credentials, with UUID primary keys and these rules enforced by PostgreSQL:
 
@@ -20,18 +20,18 @@ The schema is built by numbered SQL migrations in `src/db/migrations/`, applied 
 
 A parent row that still has children cannot be deleted. The reading column keeps the domain model's name, `timestamp`, so write it as `"timestamp"` in SQL.
 
-Repeatable seed files in `src/db/seeds/`, applied with `npm run db:seed`, load the demonstration data: 9 provinces, 25 districts, 35 substations, 200 installations, and one week of readings (134,400). Authentication and domain routes are not implemented yet.
+Repeatable seed files in `src/db/seeds/`, applied with `npm run db:seed`, load the demonstration data: 9 provinces, 25 districts, 35 substations, 200 installations, and one week of readings (134,400), plus three demo staff users without passwords.
 
-## Planned request flow
+## Request flow
 
 Request -> input parsing -> authentication -> permission checks -> route/service -> database -> response.
 
 | Part | Job |
 | --- | --- |
 | Server | Start and stop the HTTP listener |
-| App and routes | Configure middleware, validate HTTP inputs, call services, return responses |
-| Security middleware | Identify the caller and check operation permissions |
-| Services | Apply domain rules, build the overview, calculate summaries |
+| App and routes | Configure middleware, validate HTTP inputs, query the database, return responses |
+| Security middleware | Identify the caller and check the token scope for the operation |
+| Services | Calculate the district summary from readings, with no database access |
 | Database queries | Apply jurisdiction filters, use parameterized SQL, handle transactions |
 | PostgreSQL | Store records and enforce relationships, uniqueness, and value constraints |
 

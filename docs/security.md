@@ -16,7 +16,7 @@ The three readers hold the same scopes; what differs is their jurisdiction, whic
 
 Readings stay append-only. CRUD applies to installation metadata through a separate provisioning identity, not a normal SLSEA reader or device. This is a design assumption, not confirmed external guidance. No public registration may grant provisioning privileges.
 
-An installation with readings cannot be deleted or moved to a different substation. Use database constraints and transactions to protect this rule.
+An installation with readings cannot be deleted or moved to a different substation: its history would disappear or appear under another jurisdiction. The API checks this under a row lock (409, code 4003), and the database enforces it again with a foreign key and a trigger. If a site must operate under another substation, the policy is to retire the existing record and register a new installation there; the historical readings stay with the original record. Retirement is a policy only: the API has no retired status, and a replacement record cannot reuse the meter ID.
 
 ## Checks required
 

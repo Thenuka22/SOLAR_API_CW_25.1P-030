@@ -5,17 +5,17 @@
 | [Domain model](domain-model.md) | Entities, measurements, relationships, integrity rules |
 | [API endpoints](api-endpoints.md) | Paths, permissions, inputs, successful responses, error codes |
 | [API guidelines](api-guidelines.md) | Relevant WSO2 rules, their application, and justified differences |
-| [Architecture](architecture.md) | Current setup, planned components, request flow |
+| [Architecture](architecture.md) | Components, database rules, request flow |
 | [Security](security.md) | Access boundaries and the provisioning assumption |
 | [Authentication](authentication.md) | Principals, sign-in credentials, JWT claims, credential storage |
-| [Testing](testing.md) | Checks to run as features are implemented |
+| [Testing](testing.md) | How the tests run, recorded results, and what is not verified |
 
-Deployment settings stay in the [project README](../README.md#deployment). Domain endpoints and security are still planned; these notes do not claim they are live or tested.
+Deployment settings stay in the [project README](../README.md#deployment). Every endpoint in [API endpoints](api-endpoints.md) is implemented and covered by `npm test`; [Testing](testing.md#not-verified) lists what has not been verified.
 
-## Next coding steps
+## Known limitations
 
-The database migrations for all six entities and for credentials, the repeatable demonstration seed data, and the shared JSON error format are in place; see [Architecture](architecture.md#what-exists-now).
+- An installation with readings cannot be moved or deleted. If the site must operate under another substation, the policy is to retire the record and register a new one, so the history stays with the original. Retirement itself is not implemented: there is no retired status, and a meter ID is unique, so a replacement record cannot reuse it.
+- Substations are not written through the API, so a substation's district can only change by a database correction. That would move the jurisdiction of its installations' history; no constraint prevents it.
+- Concurrent writes and load have not been tested; see [Testing](testing.md#not-verified).
 
-1. Add a repeatable database test suite for the migrations and seed data before final submission.
-
-The OpenAPI document at `/api-docs` covers every implemented endpoint. Document each new endpoint there in the same commit (see [Architecture](architecture.md#what-exists-now)). Define the detailed summary schema before coding that feature. After each commit, review its changes and test results before continuing.
+The OpenAPI document at `/api-docs` covers every implemented endpoint. Document each new endpoint there in the same commit.

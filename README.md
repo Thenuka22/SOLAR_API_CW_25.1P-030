@@ -8,7 +8,7 @@
 
 ## Design documentation
 
-See the [documentation index](docs/README.md) for the domain model, endpoint responses and errors, WSO2 design rules, architecture, security, and testing notes. Domain features are still planned.
+See the [documentation index](docs/README.md) for the domain model, endpoint responses and errors, WSO2 design rules, architecture, security, and testing notes.
 
 ## Database migrations
 
@@ -48,7 +48,7 @@ Passwords are typed at a hidden prompt (or piped on standard input), never passe
 npm test
 ```
 
-Runs the automated tests in `test/` with Node's built-in test runner. The HTTP tests start the app on a temporary local port. The database tests in `test/db/` need `DATABASE_URL`, migrations, and seed data; they roll back everything they write and are skipped when `DATABASE_URL` is not set. See [Testing](docs/testing.md#recorded-results).
+Runs the automated tests in `test/` with Node's built-in test runner. The HTTP tests start the app on a temporary local port. Tests that read or write data need `DATABASE_URL`, migrations, and seed data; they roll back everything they write and are skipped when `DATABASE_URL` is not set. See [Testing](docs/testing.md#recorded-results).
 
 ## Deployment
 
