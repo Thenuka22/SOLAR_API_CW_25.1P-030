@@ -36,6 +36,9 @@ const OPERATIONS = {
   '/solar/v1.0/installations/{installation-id}': {
     get: ['200', '304', '400', '401', '403', '404', '406', '500'],
   },
+  '/solar/v1.0/installations/{installation-id}/readings': {
+    post: ['201', '400', '401', '403', '404', '406', '409', '413', '415', '500'],
+  },
 };
 
 describe('OpenAPI contract for implemented endpoints', () => {
@@ -202,6 +205,14 @@ describe('live responses match their documented operation', {
         await send('POST', `/grid-substations/${galleSubstationId}/installations`, provisioner, { meterId: 'OPENAPI-TEST-2' })],
       ['/solar/v1.0/grid-substations/{substation-id}/installations', 'post',
         await send('POST', `/grid-substations/${galleSubstationId}/installations`, national, { meterId: 'OPENAPI-TEST-3', capacityKw: 1 })],
+      ['/solar/v1.0/installations/{installation-id}/readings', 'post',
+        await send('POST', `/installations/${fixture.device.id}/readings`, device,
+          { timestamp: '2026-09-08T00:00:00+05:30', powerKw: 0, energyKwh: 10, voltage: 230 })],
+      ['/solar/v1.0/installations/{installation-id}/readings', 'post',
+        await send('POST', `/installations/${fixture.device.id}/readings`, device, { timestamp: '2026-09-08T00:00:00' })],
+      ['/solar/v1.0/installations/{installation-id}/readings', 'post',
+        await send('POST', `/installations/${galleSubstationId}/readings`, device,
+          { timestamp: '2026-09-08T00:00:00Z', powerKw: 0, energyKwh: 10, voltage: 230 })],
     ];
 
     const ajv = new Ajv({ strict: false, validateFormats: false });

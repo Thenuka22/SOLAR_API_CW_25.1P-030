@@ -30,6 +30,7 @@ const definition = {
     { name: 'Districts', description: 'Staff readers only; results are limited to the reader\'s jurisdiction.' },
     { name: 'Grid substations', description: 'Staff readers within their jurisdiction; provisioners may read an individual substation.' },
     { name: 'Installations', description: 'Installation metadata. Staff readers within their jurisdiction; provisioners for any installation.' },
+    { name: 'Readings', description: 'Append-only generation readings. Devices submit their own; staff readers read within their jurisdiction.' },
   ],
   paths: {
     '/': {
@@ -224,6 +225,35 @@ const definition = {
           capacityKw: { type: 'number', minimum: 0.001, maximum: 9999999.999, description: 'Rated capacity in kW, greater than 0, at most 3 decimal places.', example: 5.5 },
         },
       },
+      Reading: {
+        type: 'object',
+        required: ['id', 'installationId', 'timestamp', 'powerKw', 'energyKwh', 'voltage'],
+        additionalProperties: false,
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          installationId: { type: 'string', format: 'uuid' },
+          timestamp: { type: 'string', format: 'date-time', description: 'Measurement time in UTC.', example: '2026-09-01T06:30:00.000Z' },
+          powerKw: { type: 'number', minimum: 0, description: 'Instantaneous power in kW.', example: 3.214 },
+          energyKwh: { type: 'number', minimum: 0, description: 'Cumulative energy in kWh.', example: 1520.75 },
+          voltage: { type: 'number', minimum: 0, description: 'Voltage in V.', example: 231.4 },
+        },
+      },
+      ReadingCreate: {
+        type: 'object',
+        required: ['timestamp', 'powerKw', 'energyKwh', 'voltage'],
+        additionalProperties: false,
+        properties: {
+          timestamp: {
+            type: 'string',
+            format: 'date-time',
+            description: 'RFC 3339 with a timezone offset (Z or +hh:mm); at most millisecond precision.',
+            example: '2026-09-08T12:00:00+05:30',
+          },
+          powerKw: { type: 'number', minimum: 0, maximum: 9999999.999, description: 'kW, at most 3 decimal places.', example: 3.214 },
+          energyKwh: { type: 'number', minimum: 0, maximum: 99999999999.999, description: 'Cumulative kWh, at most 3 decimal places.', example: 1520.75 },
+          voltage: { type: 'number', minimum: 0, maximum: 99999.99, description: 'V, at most 2 decimal places.', example: 231.4 },
+        },
+      },
       InstallationCollection: {
         type: 'object',
         required: ['count', 'next', 'previous', 'results'],
@@ -311,7 +341,7 @@ const definition = {
       }),
       Forbidden: error('The authenticated principal type may not use this operation (3004).'),
       NotFound: error('Missing, or outside the caller\'s jurisdiction (1005). Both give the same response.'),
-      Conflict: error('The request conflicts with stored data, such as a meter ID that is already registered (4001).'),
+      Conflict: error('The request conflicts with stored data: a meter ID that is already registered (4001), or a reading that already exists for the installation and instant (4002).'),
       NotAcceptable: error('The Accept header does not allow application/json (1007).'),
       UnsupportedMediaType: error('The body is not application/json (1008), or uses an unsupported charset or content encoding (1004).'),
       PayloadTooLarge: error('The body is larger than 100 KB (1003).'),

@@ -1,6 +1,6 @@
 # API Endpoints
 
-Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, `GET /districts/{district-id}`, `GET /districts/{district-id}/grid-substations`, `GET /grid-substations/{substation-id}`, `GET` and `POST /grid-substations/{substation-id}/installations`, and `GET /installations/{installation-id}` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
+Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, `GET /districts/{district-id}`, `GET /districts/{district-id}/grid-substations`, `GET /grid-substations/{substation-id}`, `GET` and `POST /grid-substations/{substation-id}/installations`, `GET /installations/{installation-id}`, and `POST /installations/{installation-id}/readings` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
 
 All path IDs are UUIDs. JSON uses camelCase: for example, the model's `power_kw` becomes `powerKw`. Requests and responses use `application/json`.
 
@@ -96,8 +96,8 @@ Combine regional filters with AND. Valid filters with no visible matches return 
 
 - Creation derives the parent from the path. The server generates the resource ID. Location uses the canonical individual URL from the read table.
 - Reading ingestion derives ownership from the authenticated device and path. A device targeting another installation gets 403. It receives the created reading without gaining analyst read permission.
-- Reading timestamps must include a timezone and are returned in UTC. Power is instantaneous kW, energy is cumulative kWh, and voltage is in V. Reject negative or non-finite measurements. Fix numeric precision in the measurement schema before implementation.
-- Duplicate installation/timestamp pairs or meter identifiers return 409. Readings cannot be updated or deleted.
+- Reading timestamps must be RFC 3339 with a timezone offset (`Z` or `+hh:mm`) and at most millisecond precision; they are returned in UTC with milliseconds, for example `2026-09-08T06:30:00.000Z`. Power is instantaneous kW, energy is cumulative kWh, and voltage is in V. Measurements are JSON numbers from 0 up to the stored precision: `powerKw` numeric(10,3), `energyKwh` numeric(14,3), and `voltage` numeric(7,2). A value with more decimal places is rejected with 400 rather than rounded, so a stored reading is exactly what the device sent. A decrease in cumulative energy is accepted, because a meter can be replaced or reset; the summary treats it as a counter anomaly.
+- Duplicate installation/timestamp pairs (code 4002, compared as instants, so `12:00+05:30` and `06:30Z` are the same) or meter identifiers (code 4001) return 409. Readings cannot be updated or deleted.
 - `meterId`, `capacityKw`, and the applicable parent are required installation values; `capacityKw` must be positive. `address` is optional. PUT includes all required writable values; omitting `address` clears it to null. It is not a partial update and does not create a missing installation.
 - Deleting an installation with readings or moving it to another substation after readings exist returns 409. Permitted descriptive changes do not alter history.
 - PUT and DELETE support supplied If-Match and If-Unmodified-Since conditions. A failed condition returns 412 without changing data; check and mutation occur in one transaction. Clients should use conditions to avoid overwriting a newer version.
@@ -170,6 +170,7 @@ Every error response, including 404 for unknown paths, is JSON:
 | 3003 | 401 | The bearer token is invalid, expired, or revoked |
 | 3004 | 403 | The authenticated principal type may not use this operation |
 | 4001 | 409 | Another installation already has this meter ID |
+| 4002 | 409 | The installation already has a reading at this timestamp |
 
 Codes 1000-1099 cover general request and routing errors, 2000-2099 input validation, 3000-3099 authentication and authorization, and 4000-4099 conflicts with stored data. JSON bodies are parsed before routing, so malformed JSON sent to an unknown path returns 400, not 404. The code catalogue is in `src/errors.js`.
 

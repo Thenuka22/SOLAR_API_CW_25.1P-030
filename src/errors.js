@@ -27,6 +27,7 @@ const ERRORS = {
   INVALID_TOKEN: { code: 3003, status: 401, message: 'The bearer token is not valid.' },
   FORBIDDEN: { code: 3004, status: 403, message: 'You do not have permission for this operation.' },
   METER_ID_TAKEN: { code: 4001, status: 409, message: 'Another installation already has this meter ID.' },
+  READING_EXISTS: { code: 4002, status: 409, message: 'The installation already has a reading at this timestamp.' },
 };
 
 class ApiError extends Error {
