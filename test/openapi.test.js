@@ -43,6 +43,9 @@ const OPERATIONS = {
   '/solar/v1.0/installations/{installation-id}/readings/{reading-id}': {
     get: ['200', '304', '400', '401', '403', '404', '406', '500'],
   },
+  '/solar/v1.0/installations/{installation-id}/last-known-reading': {
+    get: ['200', '304', '400', '401', '403', '404', '406', '500'],
+  },
 };
 
 describe('OpenAPI contract for implemented endpoints', () => {
@@ -229,6 +232,12 @@ describe('live responses match their documented operation', {
         await read(`/installations/${seeded.id}/readings/${firstReadingId}`, national)],
       ['/solar/v1.0/installations/{installation-id}/readings/{reading-id}', 'get',
         await read(`/installations/${fixture.device.id}/readings/${firstReadingId}`, national)],
+      ['/solar/v1.0/installations/{installation-id}/last-known-reading', 'get',
+        await read(`/installations/${seeded.id}/last-known-reading`, national)],
+      ['/solar/v1.0/installations/{installation-id}/last-known-reading', 'get',
+        await read(`/installations/${galleSubstationId}/last-known-reading`, national)],
+      ['/solar/v1.0/installations/{installation-id}/last-known-reading', 'get',
+        await read(`/installations/${seeded.id}/last-known-reading`, device)],
     ];
 
     const ajv = new Ajv({ strict: false, validateFormats: false });

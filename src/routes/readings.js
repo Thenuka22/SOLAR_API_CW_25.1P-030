@@ -93,7 +93,7 @@ const INSTALLATION_VISIBLE = `EXISTS (
   WHERE s.id = i.substation_id AND ${DISTRICT_VISIBLE})`;
 
 // Authentication runs before any input is read or data is queried.
-router.use('/installations/:installationId/readings', authenticate);
+router.use(['/installations/:installationId/readings', '/installations/:installationId/last-known-reading'], authenticate);
 
 /**
  * @openapi
@@ -322,6 +322,79 @@ router
     );
     // Missing, under another installation, or outside the caller's scope: the same 404.
     if (rows.length === 0) throw new ApiError(ERRORS.RESOURCE_NOT_FOUND);
+    sendCacheableJson(req, res, rows[0].reading);
+  })
+  .all(methodNotAllowed('GET', 'HEAD'));
+
+/**
+ * @openapi
+ * /solar/v1.0/installations/{installation-id}/last-known-reading:
+ *   get:
+ *     tags: [Readings]
+ *     summary: Get an installation's most recent reading
+ *     description: |
+ *       The operational view of one installation: its reading with the latest measurement
+ *       timestamp, derived from the history on each request. A late reading with an earlier
+ *       timestamp does not replace it, whenever it arrives. Staff readers only. 404 when the
+ *       installation has no readings yet, and the same 404 as a nonexistent installation when it
+ *       is outside the caller's jurisdiction. Validated by ETag only, because it changes whenever
+ *       a newer reading arrives. No query parameters are accepted.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/installationId'
+ *       - $ref: '#/components/parameters/ifNoneMatch'
+ *     responses:
+ *       200:
+ *         description: The latest reading.
+ *         headers:
+ *           ETag:
+ *             $ref: '#/components/headers/ETag'
+ *           Cache-Control:
+ *             $ref: '#/components/headers/CacheControl'
+ *           Vary:
+ *             $ref: '#/components/headers/Vary'
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Reading'
+ *       304:
+ *         $ref: '#/components/responses/NotModified'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       406:
+ *         $ref: '#/components/responses/NotAcceptable'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
+ */
+router
+  .route('/installations/:installationId/last-known-reading')
+  .get(requirePrincipal('staff'), async (req, res) => {
+    checkQueryNames(req, []);
+    const installationId = requireUuid(req.params.installationId, 'installation-id');
+    // Latest by measurement timestamp, not by insertion; the (installation_id, timestamp DESC)
+    // index serves it directly.
+    const { rows } = await pool.query(
+      `SELECT (
+         SELECT ${READING_JSON} FROM generation_readings r
+         WHERE r.installation_id = i.id ORDER BY r."timestamp" DESC LIMIT 1
+       ) AS reading
+       FROM solar_installations i WHERE i.id = $4 AND ${INSTALLATION_VISIBLE}`,
+      [...readerScope(req.principal), installationId],
+    );
+    // A missing installation and one outside the caller's scope get the same 404.
+    if (rows.length === 0) throw new ApiError(ERRORS.RESOURCE_NOT_FOUND);
+    if (rows[0].reading === null) {
+      throw new ApiError(ERRORS.RESOURCE_NOT_FOUND, {
+        details: [detail('path', 'installation-id', 'The installation has no readings yet.')],
+      });
+    }
     sendCacheableJson(req, res, rows[0].reading);
   })
   .all(methodNotAllowed('GET', 'HEAD'));
