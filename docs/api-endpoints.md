@@ -124,7 +124,28 @@ Combine regional filters with AND. Valid filters with no visible matches return 
 | POST | `/summarize-district-generation` | Reader; `districtId`, optional `date` in YYYY-MM-DD | 200, district generation summary | 400, 401, 403, 404, 406, 415 |
 | POST | `/issue-token` | Registered principal; `principalType` and its credentials, not an existing bearer token | 200, `accessToken`, `tokenType`, `expiresIn` | 400, 406, 415, 429 |
 
-The summary date defaults to today in Asia/Colombo. Return latest known district power separately from energy for the requested date, with freshness and contributing/missing installation counts. Calculate energy from cumulative-meter differences, never by summing cumulative values. Missing boundary samples or counter anomalies make the energy result incomplete. Fix the detailed calculation and response schema with small numerical examples before implementing this endpoint.
+### District generation summary
+
+The summary date defaults to today in Asia/Colombo. The calculation is `src/services/districtSummary.js`, a function with no database access, tested with hand-worked numbers in `test/districtSummary.test.js`.
+
+**Energy for the day.** `energyKwh` is the meter's cumulative value at the reading's timestamp. Day D runs from D 00:00 to D+1 00:00 in Asia/Colombo, and an installation's energy for it is the difference between two meter values, never a sum of them. Each installation is in exactly one state:
+
+| State | Condition | Contribution |
+| --- | --- | --- |
+| complete | Samples at both midnights | Closing value minus opening value, in `completeKwh` |
+| partial | Opening sample, no closing sample | Latest sample in the day minus opening value, in `partialKwh` |
+| missing | No opening sample | Nothing |
+| anomalous | The meter value decreases between two samples, up to and including the closing one | Nothing |
+
+- `completeKwh` and `partialKwh` are separate totals and are never added together. Partial installations stop at different times, so there is no single "through" time; `earliestPartialSampleAt` and `latestPartialSampleAt` give the range of their last samples.
+- `complete` is true only when the district has at least one installation and every one is complete.
+- The seed has no sample at 00:00 on 8 September, so 1 to 6 September are complete and 7 September is partial, up to its 23:45 samples.
+
+**Current power.** Independent of the date. For each installation the latest reading not dated after the request time is used. It is fresh when at most 30 minutes old (two reporting intervals); fresh readings are summed into `totalKw` and counted in `reportingInstallations`, older ones only in `staleInstallations`. `latestReadingAt` is the newest reading that was summed. It is not a common measurement time for the district.
+
+**Null and zero.** A figure with no contributing installation is `null`; 0 means measured zero.
+
+**Precision.** Totals are added in integer thousandths, so decimal sums are exact, and returned as JSON numbers like other measurements. A JSON number holds three decimals exactly up to 9,007,199,254,740.991; a total beyond that is refused with a 500 rather than rounded. A daily district total cannot physically approach it.
 
 The summary is computed immediately, creates no persistent resource, and has no GET alias. It returns neither 201 nor 304. The token endpoint verifies credentials and derives permissions on the server; its request bodies and token claims are defined in [Authentication](authentication.md). Token responses use `Cache-Control: no-store`.
 
