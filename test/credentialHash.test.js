@@ -45,6 +45,8 @@ test('verifySecret throws on a malformed or out-of-range stored hash', async () 
   const key = 'B'.repeat(43);
   await assert.rejects(verifySecret('secret', `$scrypt$ln=30,r=8,p=1$${salt}$${key}`), /out-of-range/);
   await assert.rejects(verifySecret('secret', `$scrypt$ln=15,r=0,p=1$${salt}$${key}`), /out-of-range/);
+  await assert.rejects(verifySecret('secret', `$scrypt$ln=17,r=8,p=1$${salt}$${key}`), /out-of-range/);
+  await assert.rejects(verifySecret('secret', `$scrypt$ln=11,r=1,p=999$${salt}$${key}`), /out-of-range/);
 });
 
 test('empty, non-string, and oversized secrets are rejected', async () => {

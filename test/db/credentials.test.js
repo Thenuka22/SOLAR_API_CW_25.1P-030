@@ -186,6 +186,30 @@ describe('credential tables', { skip }, () => {
     assert.ok(device2.changed_at > device.changed_at);
   });
 
+  test('credential versions change on rotation and cannot be set directly', async () => {
+    const created = await one(
+      "INSERT INTO provisioners (username, password_hash) VALUES ('version-test', $1) RETURNING id, credential_version",
+      [hash],
+    );
+    const unchanged = await one(
+      'UPDATE provisioners SET username = $2, credential_version = gen_random_uuid() WHERE id = $1 RETURNING credential_version',
+      [created.id, 'version-test-renamed'],
+    );
+    assert.equal(unchanged.credential_version, created.credential_version);
+
+    const rotated = await one(
+      'UPDATE provisioners SET password_hash = $2 WHERE id = $1 RETURNING credential_version',
+      [created.id, await hashSecret('another long provisioner password')],
+    );
+    assert.notEqual(rotated.credential_version, created.credential_version);
+
+    const rotatedAgain = await one(
+      'UPDATE provisioners SET password_hash = $2 WHERE id = $1 RETURNING credential_version',
+      [created.id, await hashSecret('yet another long password')],
+    );
+    assert.notEqual(rotatedAgain.credential_version, rotated.credential_version);
+  });
+
   test('deleting a user or an installation without readings deletes its credential', async () => {
     await db.query('INSERT INTO user_credentials (user_id, password_hash) VALUES ($1, $2)', [userId, hash]);
     await db.query('INSERT INTO device_credentials (installation_id, secret_hash) VALUES ($1, $2)', [freeInstallationId, hash]);
