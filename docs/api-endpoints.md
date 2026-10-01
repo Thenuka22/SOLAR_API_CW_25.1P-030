@@ -1,6 +1,6 @@
 # API Endpoints
 
-Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, `GET /districts/{district-id}`, `GET /districts/{district-id}/grid-substations`, `GET /grid-substations/{substation-id}`, `GET` and `POST /grid-substations/{substation-id}/installations`, `GET /installations/{installation-id}`, and `POST /installations/{installation-id}/readings` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
+Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, `GET /districts/{district-id}`, `GET /districts/{district-id}/grid-substations`, `GET /grid-substations/{substation-id}`, `GET` and `POST /grid-substations/{substation-id}/installations`, `GET /installations/{installation-id}`, `GET` and `POST /installations/{installation-id}/readings`, and `GET /installations/{installation-id}/readings/{reading-id}` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
 
 All path IDs are UUIDs. JSON uses camelCase: for example, the model's `power_kw` becomes `powerKw`. Requests and responses use `application/json`.
 
@@ -67,6 +67,10 @@ A substation is `{ "id": "<uuid>", "districtId": "<uuid>", "name": "Kolonnawa" }
 An installation is `{ "id": "<uuid>", "substationId": "<uuid>", "meterId": "MTR-0001", "address": "<text or null>", "capacityKw": 5.5 }`, with metadata only; readings never appear in these responses. Staff readers see installations at substations in their scope, and the provisioner may list and read any installation. A device gets 403, even for its own installation. Validators are as for districts; the single installation's `Last-Modified` comes from its `updated_at`, which a new reading does not change.
 
 The provisioner creates an installation with `POST /grid-substations/{substation-id}/installations`. `meterId` is stored without surrounding spaces and may be at most 254 characters, the token endpoint's identifier limit; `capacityKw` is a JSON number above 0 and at most 9,999,999.999 with at most three decimal places, matching the stored precision, so it is never rounded silently. `id` and `substationId` in the body are rejected as read-only. A duplicate meter ID returns 409 (code 4001), also when two requests race, because the unique index decides.
+
+### Installation readings (implemented)
+
+Staff readers within their scope read an installation's history and its individual readings; devices and the provisioner get 403. A reading is `{ "id", "installationId", "timestamp", "powerKw", "energyKwh", "voltage" }`. `from` and `to` must carry an offset like body timestamps; a `+` in a query string must be sent as `%2B`, otherwise it arrives as a space and is rejected. Page links repeat `from`, `to`, and `sort` as sent. The collection and the individual reading have an ETag only: readings never change, but the server keeps no insertion time that could serve as `Last-Modified`.
 
 ### Query parameters
 

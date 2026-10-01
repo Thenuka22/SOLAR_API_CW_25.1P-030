@@ -37,7 +37,11 @@ const OPERATIONS = {
     get: ['200', '304', '400', '401', '403', '404', '406', '500'],
   },
   '/solar/v1.0/installations/{installation-id}/readings': {
+    get: ['200', '304', '400', '401', '403', '404', '406', '500'],
     post: ['201', '400', '401', '403', '404', '406', '409', '413', '415', '500'],
+  },
+  '/solar/v1.0/installations/{installation-id}/readings/{reading-id}': {
+    get: ['200', '304', '400', '401', '403', '404', '406', '500'],
   },
 };
 
@@ -165,6 +169,9 @@ describe('live responses match their documented operation', {
       "SELECT s.id FROM grid_substations s JOIN districts d ON d.id = s.district_id WHERE d.name = 'Galle' LIMIT 1",
     )).rows[0];
     const provisioner = fixture.token('provisioner', fixture.provisioner);
+    const seeded = (await fixture.db.query("SELECT id FROM solar_installations WHERE meter_id = 'MTR-0001'")).rows[0];
+    const history = await read(`/installations/${seeded.id}/readings?limit=2`, national);
+    const firstReadingId = (await history.clone().json()).results[0].id;
     const cases = [
       ['/', 'get', await fetch(`${fixture.url}/`)],
       ['/solar/v1.0/issue-token', 'post', await post({
@@ -213,6 +220,15 @@ describe('live responses match their documented operation', {
       ['/solar/v1.0/installations/{installation-id}/readings', 'post',
         await send('POST', `/installations/${galleSubstationId}/readings`, device,
           { timestamp: '2026-09-08T00:00:00Z', powerKw: 0, energyKwh: 10, voltage: 230 })],
+      ['/solar/v1.0/installations/{installation-id}/readings', 'get', history],
+      ['/solar/v1.0/installations/{installation-id}/readings', 'get',
+        await read(`/installations/${seeded.id}/readings?limit=2`, national, { 'If-None-Match': history.headers.get('etag') })],
+      ['/solar/v1.0/installations/{installation-id}/readings', 'get', await read(`/installations/${seeded.id}/readings?sort=name`, national)],
+      ['/solar/v1.0/installations/{installation-id}/readings', 'get', await read(`/installations/${seeded.id}/readings`, provisioner)],
+      ['/solar/v1.0/installations/{installation-id}/readings/{reading-id}', 'get',
+        await read(`/installations/${seeded.id}/readings/${firstReadingId}`, national)],
+      ['/solar/v1.0/installations/{installation-id}/readings/{reading-id}', 'get',
+        await read(`/installations/${fixture.device.id}/readings/${firstReadingId}`, national)],
     ];
 
     const ajv = new Ajv({ strict: false, validateFormats: false });

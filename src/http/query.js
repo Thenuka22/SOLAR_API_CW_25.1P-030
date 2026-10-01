@@ -33,10 +33,16 @@ function parsePage(req, allowed = ['offset', 'limit']) {
   return { offset, limit };
 }
 
-// next/previous as path-absolute links that keep the page size; null when there is no page.
-function pageLinks(req, { offset, limit }, count) {
+// next/previous as path-absolute links that keep the page size and any filters and sorting in
+// `kept` (query name -> value as sent); null when there is no page.
+function pageLinks(req, { offset, limit }, count, kept = {}) {
   const path = `${req.baseUrl}${req.path}`;
-  const link = (o) => `${path}?offset=${o}&limit=${limit}`;
+  const link = (o) => {
+    const query = new URLSearchParams(Object.entries(kept).filter(([, value]) => value !== undefined));
+    query.set('offset', o);
+    query.set('limit', limit);
+    return `${path}?${query}`;
+  };
   return {
     next: offset + limit < count ? link(offset + limit) : null,
     previous: offset > 0 ? link(Math.max(0, Math.min(offset, count) - limit)) : null,

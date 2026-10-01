@@ -238,6 +238,17 @@ const definition = {
           voltage: { type: 'number', minimum: 0, description: 'Voltage in V.', example: 231.4 },
         },
       },
+      ReadingCollection: {
+        type: 'object',
+        required: ['count', 'next', 'previous', 'results'],
+        additionalProperties: false,
+        properties: {
+          count: { type: 'integer', minimum: 0, description: 'Total matching readings visible to the caller, not just this page.' },
+          next: { type: 'string', nullable: true, example: '/solar/v1.0/installations/{installation-id}/readings?sort=-timestamp&offset=50&limit=50' },
+          previous: { type: 'string', nullable: true },
+          results: { type: 'array', items: { $ref: '#/components/schemas/Reading' } },
+        },
+      },
       ReadingCreate: {
         type: 'object',
         required: ['timestamp', 'powerKw', 'energyKwh', 'voltage'],
@@ -302,6 +313,32 @@ const definition = {
         in: 'path',
         required: true,
         schema: { type: 'string', format: 'uuid' },
+      },
+      readingId: {
+        name: 'reading-id',
+        in: 'path',
+        required: true,
+        schema: { type: 'string', format: 'uuid' },
+      },
+      from: {
+        name: 'from',
+        in: 'query',
+        description: 'Inclusive start: RFC 3339 date-time with a timezone offset. Send `+` as `%2B`.',
+        schema: { type: 'string', format: 'date-time' },
+        example: '2026-09-01T00:00:00+05:30',
+      },
+      to: {
+        name: 'to',
+        in: 'query',
+        description: 'Exclusive end: RFC 3339 date-time with a timezone offset, later than `from`.',
+        schema: { type: 'string', format: 'date-time' },
+        example: '2026-09-02T00:00:00+05:30',
+      },
+      sort: {
+        name: 'sort',
+        in: 'query',
+        description: 'Measurement timestamp ascending (`timestamp`) or descending (`-timestamp`); ties broken by ID.',
+        schema: { type: 'string', enum: ['timestamp', '-timestamp'], default: 'timestamp' },
       },
       ifNoneMatch: {
         name: 'If-None-Match',
