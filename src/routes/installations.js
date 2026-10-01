@@ -6,15 +6,12 @@ const { methodNotAllowed } = require('../middleware/errors');
 const { requireJsonBody } = require('../middleware/http');
 const { checkQueryNames, parsePage, pageLinks, requireUuid } = require('../http/query');
 const { sendCacheableJson, lastModifiedFrom } = require('../http/conditional');
-const { metadataScope, DISTRICT_VISIBLE } = require('../auth/scope');
+const { readerScope, metadataScope, DISTRICT_VISIBLE } = require('../auth/scope');
+const {
+  PROVINCE_JSON, DISTRICT_JSON, SUBSTATION_JSON, INSTALLATION_JSON, READING_JSON,
+} = require('../db/representations');
 
 const router = express.Router();
-
-// Installation metadata as JSON, for the row aliased i. Readings are never included.
-// capacity_kw is numeric, so it becomes a JSON number.
-const INSTALLATION_JSON = `json_build_object(
-  'id', i.id, 'substationId', i.substation_id, 'meterId', i.meter_id,
-  'address', i.address, 'capacityKw', i.capacity_kw)`;
 
 // meterId is also the device's sign-in identifier, which the token endpoint accepts up to 254
 // characters, so a longer one could never sign in.
@@ -274,6 +271,84 @@ router
     const { installation, updated_at: updatedAt, now } = rows[0];
     // The body depends only on this row, so its updated_at is a reliable Last-Modified.
     sendCacheableJson(req, res, installation, { lastModified: lastModifiedFrom(updatedAt, now) });
+  })
+  .all(methodNotAllowed('GET', 'HEAD'));
+
+/**
+ * @openapi
+ * /solar/v1.0/installations/{installation-id}/overview:
+ *   get:
+ *     tags: [Installations]
+ *     summary: Get an installation with its substation, district, province, and latest reading
+ *     description: |
+ *       A read-only composite: each embedded object has the same representation as its own
+ *       endpoint. `lastKnownReading` is the reading with the latest measurement timestamp, or
+ *       null when there are no readings; the full history is not embedded. Staff readers only,
+ *       because it includes a measurement. An installation outside the caller's jurisdiction
+ *       returns the same 404 as a nonexistent one. Validated by ETag only: the ETag changes when
+ *       any embedded record changes or a newer reading arrives, but no single modification time
+ *       covers all of them. No query parameters are accepted.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/installationId'
+ *       - $ref: '#/components/parameters/ifNoneMatch'
+ *     responses:
+ *       200:
+ *         description: The installation overview.
+ *         headers:
+ *           ETag:
+ *             $ref: '#/components/headers/ETag'
+ *           Cache-Control:
+ *             $ref: '#/components/headers/CacheControl'
+ *           Vary:
+ *             $ref: '#/components/headers/Vary'
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/InstallationOverview'
+ *       304:
+ *         $ref: '#/components/responses/NotModified'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       404:
+ *         $ref: '#/components/responses/NotFound'
+ *       406:
+ *         $ref: '#/components/responses/NotAcceptable'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
+ */
+router
+  .route('/installations/:installationId/overview')
+  .get(requirePrincipal('staff'), async (req, res) => {
+    checkQueryNames(req, []);
+    const id = requireUuid(req.params.installationId, 'installation-id');
+    // One statement, so every embedded record comes from the same snapshot.
+    const { rows } = await pool.query(
+      `SELECT json_build_object(
+         'installation', ${INSTALLATION_JSON},
+         'gridSubstation', ${SUBSTATION_JSON},
+         'district', ${DISTRICT_JSON},
+         'province', ${PROVINCE_JSON},
+         'lastKnownReading', (
+           SELECT ${READING_JSON} FROM generation_readings r
+           WHERE r.installation_id = i.id ORDER BY r."timestamp" DESC LIMIT 1
+         )
+       ) AS overview
+       FROM solar_installations i
+       JOIN grid_substations s ON s.id = i.substation_id
+       JOIN districts d ON d.id = s.district_id
+       JOIN provinces p ON p.id = d.province_id
+       WHERE i.id = $4 AND ${DISTRICT_VISIBLE}`,
+      [...readerScope(req.principal), id],
+    );
+    // A missing installation and one outside the caller's scope get the same 404.
+    if (rows.length === 0) throw new ApiError(ERRORS.RESOURCE_NOT_FOUND);
+    sendCacheableJson(req, res, rows[0].overview);
   })
   .all(methodNotAllowed('GET', 'HEAD'));
 

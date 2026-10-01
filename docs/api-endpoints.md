@@ -1,6 +1,6 @@
 # API Endpoints
 
-Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, `GET /districts/{district-id}`, `GET /districts/{district-id}/grid-substations`, `GET /grid-substations/{substation-id}`, `GET` and `POST /grid-substations/{substation-id}/installations`, `GET /installations/{installation-id}`, `GET` and `POST /installations/{installation-id}/readings`, `GET /installations/{installation-id}/readings/{reading-id}`, and `GET /installations/{installation-id}/last-known-reading` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
+Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, `GET /districts/{district-id}`, `GET /districts/{district-id}/grid-substations`, `GET /grid-substations/{substation-id}`, `GET` and `POST /grid-substations/{substation-id}/installations`, `GET /installations/{installation-id}`, `GET` and `POST /installations/{installation-id}/readings`, `GET /installations/{installation-id}/readings/{reading-id}`, `GET /installations/{installation-id}/last-known-reading`, and `GET /installations/{installation-id}/overview` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
 
 All path IDs are UUIDs. JSON uses camelCase: for example, the model's `power_kw` becomes `powerKw`. Requests and responses use `application/json`.
 
@@ -73,6 +73,8 @@ The provisioner creates an installation with `POST /grid-substations/{substation
 Staff readers within their scope read an installation's history and its individual readings; devices and the provisioner get 403. A reading is `{ "id", "installationId", "timestamp", "powerKw", "energyKwh", "voltage" }`. `from` and `to` must carry an offset like body timestamps; a `+` in a query string must be sent as `%2B`, otherwise it arrives as a space and is rejected. Page links repeat `from`, `to`, and `sort` as sent. The collection and the individual reading have an ETag only: readings never change, but the server keeps no insertion time that could serve as `Last-Modified`.
 
 The last-known reading has the same representation as the reading it selects. Its 404 for an installation without readings has a detail naming `installation-id`; an out-of-scope installation gets the plain 404 of a missing one. It has an ETag only, because it changes whenever a newer reading arrives.
+
+The overview is for staff readers only, because it embeds a measurement; the provisioner gets 403. Each embedded object has exactly the representation of its own endpoint, built from the same SQL expressions in `src/db/representations.js`. It has an ETag only: the tag changes when the installation, an ancestor, or the latest reading changes, but no single modification time covers all of them.
 
 ### Query parameters
 

@@ -10,6 +10,8 @@ const app = require('../src/app');
 const spec = require('../src/config/swagger');
 const { startApiFixture } = require('../test_support/apiFixture');
 
+const MISSING_ID = '00000000-0000-4000-8000-000000000000';
+
 const OPERATIONS = {
   '/': { get: ['200'] },
   '/solar/v1.0/issue-token': { post: ['200', '400', '406', '413', '415', '429', '500'] },
@@ -44,6 +46,9 @@ const OPERATIONS = {
     get: ['200', '304', '400', '401', '403', '404', '406', '500'],
   },
   '/solar/v1.0/installations/{installation-id}/last-known-reading': {
+    get: ['200', '304', '400', '401', '403', '404', '406', '500'],
+  },
+  '/solar/v1.0/installations/{installation-id}/overview': {
     get: ['200', '304', '400', '401', '403', '404', '406', '500'],
   },
 };
@@ -238,6 +243,10 @@ describe('live responses match their documented operation', {
         await read(`/installations/${galleSubstationId}/last-known-reading`, national)],
       ['/solar/v1.0/installations/{installation-id}/last-known-reading', 'get',
         await read(`/installations/${seeded.id}/last-known-reading`, device)],
+      ['/solar/v1.0/installations/{installation-id}/overview', 'get', await read(`/installations/${seeded.id}/overview`, national)],
+      ['/solar/v1.0/installations/{installation-id}/overview', 'get', await read(`/installations/${fixture.device.id}/overview`, national)],
+      ['/solar/v1.0/installations/{installation-id}/overview', 'get', await read(`/installations/${seeded.id}/overview`, provisioner)],
+      ['/solar/v1.0/installations/{installation-id}/overview', 'get', await read(`/installations/${MISSING_ID}/overview`, national)],
     ];
 
     const ajv = new Ajv({ strict: false, validateFormats: false });

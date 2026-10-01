@@ -8,15 +8,9 @@ const { checkQueryNames, parsePage, pageLinks, requireUuid } = require('../http/
 const { sendCacheableJson } = require('../http/conditional');
 const { parseTimestamp } = require('../http/timestamps');
 const { readerScope, DISTRICT_VISIBLE } = require('../auth/scope');
+const { READING_JSON } = require('../db/representations');
 
 const router = express.Router();
-
-// A reading as JSON, for the row aliased r. The timestamp is returned in UTC with milliseconds;
-// the numeric measurements become JSON numbers.
-const READING_JSON = `json_build_object(
-  'id', r.id, 'installationId', r.installation_id,
-  'timestamp', to_char(r."timestamp" AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
-  'powerKw', r.power_kw, 'energyKwh', r.energy_kwh, 'voltage', r.voltage)`;
 
 // The stored precision of each measurement (migration 003). A value with more decimal places
 // or above the maximum is rejected rather than rounded, so what is stored is what was sent.

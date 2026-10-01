@@ -11,6 +11,21 @@ const error = (description, extra = {}) => ({
   ...extra,
 });
 
+// Shared by Reading and the nullable lastKnownReading in InstallationOverview.
+const reading = {
+  type: 'object',
+  required: ['id', 'installationId', 'timestamp', 'powerKw', 'energyKwh', 'voltage'],
+  additionalProperties: false,
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    installationId: { type: 'string', format: 'uuid' },
+    timestamp: { type: 'string', format: 'date-time', description: 'Measurement time in UTC.', example: '2026-09-01T06:30:00.000Z' },
+    powerKw: { type: 'number', minimum: 0, description: 'Instantaneous power in kW.', example: 3.214 },
+    energyKwh: { type: 'number', minimum: 0, description: 'Cumulative energy in kWh.', example: 1520.75 },
+    voltage: { type: 'number', minimum: 0, description: 'Voltage in V.', example: 231.4 },
+  },
+};
+
 const definition = {
   openapi: '3.0.3',
   info: {
@@ -225,17 +240,19 @@ const definition = {
           capacityKw: { type: 'number', minimum: 0.001, maximum: 9999999.999, description: 'Rated capacity in kW, greater than 0, at most 3 decimal places.', example: 5.5 },
         },
       },
-      Reading: {
+      Reading: reading,
+      InstallationOverview: {
         type: 'object',
-        required: ['id', 'installationId', 'timestamp', 'powerKw', 'energyKwh', 'voltage'],
+        required: ['installation', 'gridSubstation', 'district', 'province', 'lastKnownReading'],
         additionalProperties: false,
         properties: {
-          id: { type: 'string', format: 'uuid' },
-          installationId: { type: 'string', format: 'uuid' },
-          timestamp: { type: 'string', format: 'date-time', description: 'Measurement time in UTC.', example: '2026-09-01T06:30:00.000Z' },
-          powerKw: { type: 'number', minimum: 0, description: 'Instantaneous power in kW.', example: 3.214 },
-          energyKwh: { type: 'number', minimum: 0, description: 'Cumulative energy in kWh.', example: 1520.75 },
-          voltage: { type: 'number', minimum: 0, description: 'Voltage in V.', example: 231.4 },
+          installation: { $ref: '#/components/schemas/Installation' },
+          gridSubstation: { $ref: '#/components/schemas/GridSubstation' },
+          district: { $ref: '#/components/schemas/District' },
+          province: { $ref: '#/components/schemas/Province' },
+          // OpenAPI 3.0 applies nullable only beside an explicit type, so a $ref cannot be made
+          // nullable; this is the Reading schema with null allowed.
+          lastKnownReading: { ...reading, nullable: true, description: 'The latest reading, or null when there are none.' },
         },
       },
       ReadingCollection: {
