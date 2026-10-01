@@ -49,12 +49,16 @@ function pageLinks(req, { offset, limit }, count, kept = {}) {
   };
 }
 
+function isUuid(value) {
+  return typeof value === 'string' && UUID.test(value);
+}
+
 // 400 unless the path parameter is a UUID. `name` is the documented parameter name.
 function requireUuid(value, name) {
-  if (!UUID.test(value)) {
+  if (!isUuid(value)) {
     throw new ApiError(ERRORS.VALIDATION_FAILED, { details: [detail('path', name, `${name} must be a UUID.`)] });
   }
   return value.toLowerCase();
 }
 
-module.exports = { checkQueryNames, parsePage, pageLinks, requireUuid };
+module.exports = { checkQueryNames, parsePage, pageLinks, isUuid, requireUuid };

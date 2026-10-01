@@ -51,6 +51,9 @@ const OPERATIONS = {
   '/solar/v1.0/installations/{installation-id}/overview': {
     get: ['200', '304', '400', '401', '403', '404', '406', '500'],
   },
+  '/solar/v1.0/readings': {
+    get: ['200', '304', '400', '401', '403', '406', '500'],
+  },
 };
 
 describe('OpenAPI contract for implemented endpoints', () => {
@@ -180,6 +183,7 @@ describe('live responses match their documented operation', {
     const seeded = (await fixture.db.query("SELECT id FROM solar_installations WHERE meter_id = 'MTR-0001'")).rows[0];
     const history = await read(`/installations/${seeded.id}/readings?limit=2`, national);
     const firstReadingId = (await history.clone().json()).results[0].id;
+    const regional = await read('/readings?limit=2&sort=-timestamp', provincial);
     const cases = [
       ['/', 'get', await fetch(`${fixture.url}/`)],
       ['/solar/v1.0/issue-token', 'post', await post({
@@ -247,6 +251,11 @@ describe('live responses match their documented operation', {
       ['/solar/v1.0/installations/{installation-id}/overview', 'get', await read(`/installations/${fixture.device.id}/overview`, national)],
       ['/solar/v1.0/installations/{installation-id}/overview', 'get', await read(`/installations/${seeded.id}/overview`, provisioner)],
       ['/solar/v1.0/installations/{installation-id}/overview', 'get', await read(`/installations/${MISSING_ID}/overview`, national)],
+      ['/solar/v1.0/readings', 'get', regional],
+      ['/solar/v1.0/readings', 'get', await read('/readings?limit=2&sort=-timestamp', provincial, { 'If-None-Match': regional.headers.get('etag') })],
+      ['/solar/v1.0/readings', 'get', await read(`/readings?district-id=${MISSING_ID}`, provincial)],
+      ['/solar/v1.0/readings', 'get', await read('/readings?district-id=x', provincial)],
+      ['/solar/v1.0/readings', 'get', await read('/readings', provisioner)],
     ];
 
     const ajv = new Ajv({ strict: false, validateFormats: false });

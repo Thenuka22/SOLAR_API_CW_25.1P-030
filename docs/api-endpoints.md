@@ -1,6 +1,6 @@
 # API Endpoints
 
-Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, `GET /districts/{district-id}`, `GET /districts/{district-id}/grid-substations`, `GET /grid-substations/{substation-id}`, `GET` and `POST /grid-substations/{substation-id}/installations`, `GET /installations/{installation-id}`, `GET` and `POST /installations/{installation-id}/readings`, `GET /installations/{installation-id}/readings/{reading-id}`, `GET /installations/{installation-id}/last-known-reading`, and `GET /installations/{installation-id}/overview` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
+Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, `GET /districts/{district-id}`, `GET /districts/{district-id}/grid-substations`, `GET /grid-substations/{substation-id}`, `GET` and `POST /grid-substations/{substation-id}/installations`, `GET /installations/{installation-id}`, `GET` and `POST /installations/{installation-id}/readings`, `GET /installations/{installation-id}/readings/{reading-id}`, `GET /installations/{installation-id}/last-known-reading`, `GET /installations/{installation-id}/overview`, and `GET /readings` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
 
 All path IDs are UUIDs. JSON uses camelCase: for example, the model's `power_kw` becomes `powerKw`. Requests and responses use `application/json`.
 
@@ -75,6 +75,10 @@ Staff readers within their scope read an installation's history and its individu
 The last-known reading has the same representation as the reading it selects. Its 404 for an installation without readings has a detail naming `installation-id`; an out-of-scope installation gets the plain 404 of a missing one. It has an ETag only, because it changes whenever a newer reading arrives.
 
 The overview is for staff readers only, because it embeds a measurement; the provisioner gets 403. Each embedded object has exactly the representation of its own endpoint, built from the same SQL expressions in `src/db/representations.js`. It has an ETag only: the tag changes when the installation, an ancestor, or the latest reading changes, but no single modification time covers all of them.
+
+### Regional readings (implemented)
+
+`GET /readings` applies the reader's jurisdiction in SQL first, then the region filters and the time window, and only then counts and pages. A filter outside the jurisdiction therefore returns `{ "count": 0, "next": null, "previous": null, "results": [] }` with 200, and the same URL gives each reader a different body and ETag. On the full seed a national reader's unfiltered week takes about 170 ms in the database and a one-day window about 25 ms, using an index on (`timestamp`, `id`).
 
 ### Query parameters
 

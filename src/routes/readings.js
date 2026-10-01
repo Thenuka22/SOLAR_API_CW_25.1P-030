@@ -4,7 +4,7 @@ const { ERRORS, ApiError, detail } = require('../errors');
 const { authenticate, requirePrincipal } = require('../middleware/authenticate');
 const { methodNotAllowed } = require('../middleware/errors');
 const { requireJsonBody } = require('../middleware/http');
-const { checkQueryNames, parsePage, pageLinks, requireUuid } = require('../http/query');
+const { checkQueryNames, parsePage, pageLinks, isUuid, requireUuid } = require('../http/query');
 const { sendCacheableJson } = require('../http/conditional');
 const { parseTimestamp } = require('../http/timestamps');
 const { readerScope, DISTRICT_VISIBLE } = require('../auth/scope');
@@ -88,6 +88,108 @@ const INSTALLATION_VISIBLE = `EXISTS (
 
 // Authentication runs before any input is read or data is queried.
 router.use(['/installations/:installationId/readings', '/installations/:installationId/last-known-reading'], authenticate);
+router.use('/readings', authenticate, requirePrincipal('staff'));
+
+// Regional filters on GET /readings: query name -> SQL column, all combined with AND.
+const REGION_FILTERS = { 'province-id': 'd.province_id', 'district-id': 'd.id', 'substation-id': 's.id' };
+
+/**
+ * @openapi
+ * /solar/v1.0/readings:
+ *   get:
+ *     tags: [Readings]
+ *     summary: List readings across installations in the caller's jurisdiction
+ *     description: |
+ *       The analytical history across many installations. Staff readers only. The caller's
+ *       jurisdiction is applied first; `province-id`, `district-id`, and `substation-id` then
+ *       narrow it, combined with each other and the time window by AND. A filter naming a region
+ *       outside the jurisdiction, or one that does not exist, matches nothing and returns an
+ *       empty page; it never widens access. `count` is the total after both. Ordered by
+ *       timestamp, then reading ID, so readings of several installations with the same timestamp
+ *       keep a stable order across pages. Page links keep every filter and the sort. Validated
+ *       by ETag only.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/offset'
+ *       - $ref: '#/components/parameters/limit'
+ *       - $ref: '#/components/parameters/from'
+ *       - $ref: '#/components/parameters/to'
+ *       - $ref: '#/components/parameters/sort'
+ *       - $ref: '#/components/parameters/provinceFilter'
+ *       - $ref: '#/components/parameters/districtFilter'
+ *       - $ref: '#/components/parameters/substationFilter'
+ *       - $ref: '#/components/parameters/ifNoneMatch'
+ *     responses:
+ *       200:
+ *         description: A page of matching readings.
+ *         headers:
+ *           ETag:
+ *             $ref: '#/components/headers/ETag'
+ *           Cache-Control:
+ *             $ref: '#/components/headers/CacheControl'
+ *           Vary:
+ *             $ref: '#/components/headers/Vary'
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ReadingCollection'
+ *       304:
+ *         $ref: '#/components/responses/NotModified'
+ *       400:
+ *         $ref: '#/components/responses/BadRequest'
+ *       401:
+ *         $ref: '#/components/responses/Unauthorized'
+ *       403:
+ *         $ref: '#/components/responses/Forbidden'
+ *       406:
+ *         $ref: '#/components/responses/NotAcceptable'
+ *       500:
+ *         $ref: '#/components/responses/InternalError'
+ */
+router
+  .route('/readings')
+  .get(async (req, res) => {
+    const { page, from, to, direction, kept } = parseReadingQuery(req, Object.keys(REGION_FILTERS));
+    const problems = [];
+    const regions = Object.keys(REGION_FILTERS).map((name) => {
+      const raw = req.query[name];
+      if (raw === undefined) return null;
+      if (isUuid(raw)) return raw.toLowerCase();
+      problems.push(detail('query', name, `${name} must be a UUID.`));
+      return null;
+    });
+    if (problems.length > 0) throw new ApiError(ERRORS.VALIDATION_FAILED, { details: problems });
+
+    // The jurisdiction condition and the filters both apply before counting and paging, in
+    // one statement, so the count and the page come from the same snapshot.
+    const filters = Object.values(REGION_FILTERS)
+      .map((column, index) => `($${index + 4}::uuid IS NULL OR ${column} = $${index + 4})`)
+      .join(' AND ');
+    const { rows } = await pool.query(
+      `WITH visible AS (
+         SELECT r.* FROM generation_readings r
+         JOIN solar_installations i ON i.id = r.installation_id
+         JOIN grid_substations s ON s.id = i.substation_id
+         JOIN districts d ON d.id = s.district_id
+         WHERE ${DISTRICT_VISIBLE} AND ${filters}
+           AND ($7::timestamptz IS NULL OR r."timestamp" >= $7)
+           AND ($8::timestamptz IS NULL OR r."timestamp" < $8)
+       )
+       SELECT
+         (SELECT count(*) FROM visible)::int AS count,
+         coalesce(
+           (SELECT json_agg(${READING_JSON} ORDER BY r."timestamp" ${direction}, r.id ${direction})
+            FROM (SELECT * FROM visible ORDER BY "timestamp" ${direction}, id ${direction} LIMIT $9 OFFSET $10) AS r),
+           '[]'::json
+         ) AS results`,
+      [...readerScope(req.principal), ...regions, from, to, page.limit, page.offset],
+    );
+    const { count, results } = rows[0];
+    const keptRegions = Object.fromEntries(Object.keys(REGION_FILTERS).map((name) => [name, req.query[name]]));
+    sendCacheableJson(req, res, { count, ...pageLinks(req, page, count, { ...keptRegions, ...kept }), results });
+  })
+  .all(methodNotAllowed('GET', 'HEAD'));
 
 /**
  * @openapi

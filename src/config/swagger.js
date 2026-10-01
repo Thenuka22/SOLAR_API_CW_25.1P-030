@@ -357,6 +357,24 @@ const definition = {
         description: 'Measurement timestamp ascending (`timestamp`) or descending (`-timestamp`); ties broken by ID.',
         schema: { type: 'string', enum: ['timestamp', '-timestamp'], default: 'timestamp' },
       },
+      provinceFilter: {
+        name: 'province-id',
+        in: 'query',
+        description: 'Only readings of installations in this province. Outside the jurisdiction it matches nothing.',
+        schema: { type: 'string', format: 'uuid' },
+      },
+      districtFilter: {
+        name: 'district-id',
+        in: 'query',
+        description: 'Only readings of installations in this district. Outside the jurisdiction it matches nothing.',
+        schema: { type: 'string', format: 'uuid' },
+      },
+      substationFilter: {
+        name: 'substation-id',
+        in: 'query',
+        description: 'Only readings of installations at this substation. Outside the jurisdiction it matches nothing.',
+        schema: { type: 'string', format: 'uuid' },
+      },
       ifNoneMatch: {
         name: 'If-None-Match',
         in: 'header',
