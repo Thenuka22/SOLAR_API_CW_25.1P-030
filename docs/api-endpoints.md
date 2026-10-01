@@ -1,6 +1,6 @@
 # API Endpoints
 
-Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, `GET /districts/{district-id}`, `GET /districts/{district-id}/grid-substations`, `GET /grid-substations/{substation-id}`, `GET` and `POST /grid-substations/{substation-id}/installations`, `GET`, `PUT`, and `DELETE /installations/{installation-id}`, `GET` and `POST /installations/{installation-id}/readings`, `GET /installations/{installation-id}/readings/{reading-id}`, `GET /installations/{installation-id}/last-known-reading`, `GET /installations/{installation-id}/overview`, and `GET /readings` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
+Base path: `/solar/v1.0`. These are planned endpoints. At present, `/`, Swagger UI at `/api-docs`, `POST /issue-token`, `GET /provinces`, `GET /provinces/{province-id}`, `GET /provinces/{province-id}/districts`, `GET /districts/{district-id}`, `GET /districts/{district-id}/grid-substations`, `GET /grid-substations/{substation-id}`, `GET` and `POST /grid-substations/{substation-id}/installations`, `GET`, `PUT`, and `DELETE /installations/{installation-id}`, `GET` and `POST /installations/{installation-id}/readings`, `GET /installations/{installation-id}/readings/{reading-id}`, `GET /installations/{installation-id}/last-known-reading`, `GET /installations/{installation-id}/overview`, `GET /readings`, and `POST /summarize-district-generation` are implemented, together with the shared [error format](#error-format). The OpenAPI document shown by Swagger UI describes only these implemented operations, with their request and response schemas, headers, and error responses.
 
 All path IDs are UUIDs. JSON uses camelCase: for example, the model's `power_kw` becomes `powerKw`. Requests and responses use `application/json`.
 
@@ -121,10 +121,12 @@ Combine regional filters with AND. Valid filters with no visible matches return 
 
 | Method | Path | Caller and input | Success | Errors |
 | --- | --- | --- | --- | --- |
-| POST | `/summarize-district-generation` | Reader; `districtId`, optional `date` in YYYY-MM-DD | 200, district generation summary | 400, 401, 403, 404, 406, 415 |
+| POST | `/summarize-district-generation` | Reader; `districtId`, optional `date` in YYYY-MM-DD | 200, district generation summary | 400, 401, 403, 404, 406, 413, 415 |
 | POST | `/issue-token` | Registered principal; `principalType` and its credentials, not an existing bearer token | 200, `accessToken`, `tokenType`, `expiresIn` | 400, 406, 415, 429 |
 
 ### District generation summary
+
+`POST /summarize-district-generation` (implemented) is for staff readers only; a district that is missing or outside the reader's jurisdiction returns the same 404. The body is `{ "districtId", "date" }`; an unknown field, an impossible date, or a date after today in Asia/Colombo returns 400. The response is `{ districtId, date, timeZone, installations, power, energy }` with `Cache-Control: no-store`.
 
 The summary date defaults to today in Asia/Colombo. The calculation is `src/services/districtSummary.js`, a function with no database access, tested with hand-worked numbers in `test/districtSummary.test.js`.
 

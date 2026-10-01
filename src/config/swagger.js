@@ -46,6 +46,7 @@ const definition = {
     { name: 'Grid substations', description: 'Staff readers within their jurisdiction; provisioners may read an individual substation.' },
     { name: 'Installations', description: 'Installation metadata. Staff readers within their jurisdiction; provisioners for any installation.' },
     { name: 'Readings', description: 'Append-only generation readings. Devices submit their own; staff readers read within their jurisdiction.' },
+    { name: 'Summaries', description: 'Processing functions computed across many installations. Staff readers within their jurisdiction.' },
   ],
   paths: {
     '/': {
@@ -303,6 +304,58 @@ const definition = {
           id: { type: 'string', format: 'uuid' },
           meterId: { type: 'string', example: 'MTR-0201' },
           deletedAt: { type: 'string', format: 'date-time', description: 'UTC, with milliseconds.', example: '2026-10-01T09:30:00.000Z' },
+        },
+      },
+      DistrictSummaryRequest: {
+        type: 'object',
+        required: ['districtId'],
+        additionalProperties: false,
+        properties: {
+          districtId: { type: 'string', format: 'uuid' },
+          date: { type: 'string', format: 'date', description: 'A day in Asia/Colombo, not in the future. Defaults to today.', example: '2026-09-06' },
+        },
+      },
+      DistrictGenerationSummary: {
+        type: 'object',
+        required: ['districtId', 'date', 'timeZone', 'installations', 'power', 'energy'],
+        additionalProperties: false,
+        properties: {
+          districtId: { type: 'string', format: 'uuid' },
+          date: { type: 'string', format: 'date', example: '2026-09-06' },
+          timeZone: { type: 'string', enum: ['Asia/Colombo'] },
+          installations: { type: 'integer', minimum: 0, description: 'Installations in the district.' },
+          power: {
+            type: 'object',
+            required: ['totalKw', 'reportingInstallations', 'staleInstallations', 'latestReadingAt'],
+            additionalProperties: false,
+            description: 'Current power, whatever date was asked for.',
+            properties: {
+              totalKw: { type: 'number', nullable: true, minimum: 0, description: 'Sum of fresh latest readings; null when none is fresh.', example: 41.875 },
+              reportingInstallations: { type: 'integer', minimum: 0, description: 'Latest reading at most 30 minutes old.' },
+              staleInstallations: { type: 'integer', minimum: 0, description: 'Latest reading older than 30 minutes; not in the total.' },
+              latestReadingAt: { type: 'string', format: 'date-time', nullable: true, description: 'The newest reading in the total. Not a common measurement time.' },
+            },
+          },
+          energy: {
+            type: 'object',
+            required: [
+              'complete', 'completeKwh', 'partialKwh', 'completeInstallations', 'partialInstallations',
+              'missingInstallations', 'anomalousInstallations', 'earliestPartialSampleAt', 'latestPartialSampleAt',
+            ],
+            additionalProperties: false,
+            description: 'Energy generated on the date, from differences of cumulative meter values.',
+            properties: {
+              complete: { type: 'boolean', description: 'True only when every installation of a non-empty district is complete.' },
+              completeKwh: { type: 'number', nullable: true, minimum: 0, description: 'Total for installations with samples at both midnights; null when there are none.', example: 312.48 },
+              partialKwh: { type: 'number', nullable: true, minimum: 0, description: 'Total for installations with no closing sample, each up to its latest sample; null when there are none.' },
+              completeInstallations: { type: 'integer', minimum: 0 },
+              partialInstallations: { type: 'integer', minimum: 0 },
+              missingInstallations: { type: 'integer', minimum: 0, description: 'No sample at the opening midnight.' },
+              anomalousInstallations: { type: 'integer', minimum: 0, description: 'The cumulative value decreased during the day.' },
+              earliestPartialSampleAt: { type: 'string', format: 'date-time', nullable: true },
+              latestPartialSampleAt: { type: 'string', format: 'date-time', nullable: true },
+            },
+          },
         },
       },
       InstallationCollection: {

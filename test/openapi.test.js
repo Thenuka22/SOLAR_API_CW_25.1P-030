@@ -56,6 +56,9 @@ const OPERATIONS = {
   '/solar/v1.0/readings': {
     get: ['200', '304', '400', '401', '403', '406', '500'],
   },
+  '/solar/v1.0/summarize-district-generation': {
+    post: ['200', '400', '401', '403', '404', '406', '413', '415', '500'],
+  },
 };
 
 describe('OpenAPI contract for implemented endpoints', () => {
@@ -278,6 +281,16 @@ describe('live responses match their documented operation', {
         })],
       ['/solar/v1.0/installations/{installation-id}', 'put',
         await send('PUT', `/installations/${MISSING_ID}`, provisioner, { substationId: galleSubstationId, meterId: 'OPENAPI-PUT-2', capacityKw: 3 })],
+      ['/solar/v1.0/summarize-district-generation', 'post',
+        await send('POST', '/summarize-district-generation', national, { districtId: colomboId, date: '2026-09-06' })],
+      ['/solar/v1.0/summarize-district-generation', 'post',
+        await send('POST', '/summarize-district-generation', national, { districtId: colomboId })],
+      ['/solar/v1.0/summarize-district-generation', 'post',
+        await send('POST', '/summarize-district-generation', national, { districtId: colomboId, date: '2026-02-30' })],
+      ['/solar/v1.0/summarize-district-generation', 'post',
+        await send('POST', '/summarize-district-generation', national, { districtId: MISSING_ID })],
+      ['/solar/v1.0/summarize-district-generation', 'post',
+        await send('POST', '/summarize-district-generation', device, { districtId: colomboId })],
       ['/solar/v1.0/installations/{installation-id}', 'delete', await remove(`/installations/${seeded.id}`, provisioner)],
       ['/solar/v1.0/installations/{installation-id}', 'delete', await remove(`/installations/${createdId}`, provisioner, { 'If-Match': '"stale"' })],
       ['/solar/v1.0/installations/{installation-id}', 'delete', await remove(`/installations/${createdId}`, national)],

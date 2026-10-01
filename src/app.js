@@ -9,6 +9,7 @@ const districtRoutes = require('./routes/districts');
 const substationRoutes = require('./routes/substations');
 const installationRoutes = require('./routes/installations');
 const readingRoutes = require('./routes/readings');
+const summaryRoutes = require('./routes/summaries');
 
 const app = express();
 
@@ -37,6 +38,7 @@ api.use(districtRoutes);
 api.use(substationRoutes);
 api.use(installationRoutes);
 api.use(readingRoutes);
+api.use(summaryRoutes);
 app.use('/solar/v1.0', api);
 
 // Keep these last: unmatched paths become 404, and every error is returned as JSON.
