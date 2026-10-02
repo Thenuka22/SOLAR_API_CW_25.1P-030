@@ -39,5 +39,5 @@ Query plans on the full seed, measured with `EXPLAIN ANALYZE`: a national reader
 ## Not verified
 
 - **Concurrent writes.** The fixture uses one connection, so two requests never truly race. Duplicate readings and meter IDs rely on unique indexes, and conditional PUT and DELETE rely on the row lock taken in the same transaction; neither has been shown with two real connections. This needs a disposable database, because the rows must be committed, and it was not run against the shared one.
-- **Load.** No load test has been run.
+- **Load beyond the bounded local check.** One bounded run was made on 2026-10-02: 25 concurrent clients for 20 seconds against a local server and the development database, read-only (provinces, a province's districts, a district's substations, and a one-day regional reading window of 50 rows), signed in as the national demo reader. 1,922 requests, all 200, no errors; latency 257 ms median, 286 ms at the 95th percentile, 490 ms at the 99th, 610 ms maximum. Server and clients ran in one process on one machine with the database in another region, so the figures mostly show the round trip to the database. Writes under load, and the deployed free instance, were not load tested.
 - **Deployment.** The checks on the public URL (HTTPS, Swagger, sign-in, seeded reads) are recorded in the README once made.
