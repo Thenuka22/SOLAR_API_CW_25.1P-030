@@ -52,7 +52,15 @@ Runs the automated tests in `test/` with Node's built-in test runner. The HTTP t
 
 ## Deployment
 
-The API is deployed on [Render](https://render.com) as a Node web service, configured by `render.yaml`.
+| | URL |
+| --- | --- |
+| API base | https://solar-api-cw-25-1p-030.onrender.com/solar/v1.0 |
+| Swagger UI (OpenAPI) | https://solar-api-cw-25-1p-030.onrender.com/api-docs |
+| Status | https://solar-api-cw-25-1p-030.onrender.com/ |
+
+To call a protected endpoint, send the credentials to `POST /solar/v1.0/issue-token`, then send the returned `accessToken` as `Authorization: Bearer <token>` (in Swagger UI, use **Authorize**). The seeded readings cover 2026-09-01 to 2026-09-07, so use a date in that week for the district summary. The free instance sleeps when idle; the first request after a pause can take up to a minute.
+
+The API is deployed on [Render](https://render.com) as a Node web service, configured by `render.yaml`. Render redirects HTTP to HTTPS and manages the TLS certificate. The checks made on the deployed service are recorded in [Testing](docs/testing.md#deployed-service).
 
 | Setting | Value |
 | --- | --- |

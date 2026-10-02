@@ -36,8 +36,29 @@ The last sample is 23:45 on 7 September. The [district summary](api-endpoints.md
 
 Query plans on the full seed, measured with `EXPLAIN ANALYZE`: a national reader's unfiltered week takes about 170 ms in the database and a one-day window about 25 ms, using the index on (`timestamp`, `id`).
 
+## Deployed service
+
+Checked on 2026-10-02 at `https://solar-api-cw-25-1p-030.onrender.com`, after the deployment of commit `18f5bf9`, using the demo accounts. All requests were reads or sign-ins; no deployed data was changed.
+
+| Check | Result |
+| --- | --- |
+| HTTPS | `GET /` 200 `{"status":"ok"}`; `http://` answers 301 to the `https://` URL |
+| Response headers | `X-Content-Type-Options: nosniff`; no `X-Powered-By` |
+| Swagger UI | `/api-docs/` 200; lists the summary operation, DELETE, and the scopes |
+| Sign-in | All three staff readers, the provisioner, and the device get 200 with their scopes; wrong credentials 400 (code 3001); no token 401 |
+| Jurisdiction | National reader sees 9 provinces; the Western reader sees only Western; the Colombo reader gets 404 for a Galle district and for Galle's summary |
+| Scopes | A device token on `/provinces` gets 403 with `error="insufficient_scope", scope="hierarchy:read"`; the provisioner gets 403 on reading history |
+| Conditional GET | `If-None-Match` with the current ETag returns 304; a single district sends `Last-Modified` |
+| Content negotiation | `Accept: text/html` returns 406 |
+| History | One installation has 672 readings; newest first with `sort=-timestamp`; `next` link keeps the sort; a one-day window has 96 |
+| Last-known reading and overview | 200; the reading at 2026-09-07T18:15:00.000Z; overview has installation, substation, district, province, and reading |
+| Regional readings | The Western reader counts 30,240 readings |
+| District summary | Colombo on 2026-09-06: complete, 1397.19 kWh from 20 installations. On 2026-09-07: partial, 1496.4 kWh up to 18:15 UTC |
+| Write precondition | `DELETE` with a stale `If-Match` returns 412 (code 1010); nothing deleted |
+
 ## Not verified
 
 - **Concurrent writes.** The fixture uses one connection, so two requests never truly race. Duplicate readings and meter IDs rely on unique indexes, and conditional PUT and DELETE rely on the row lock taken in the same transaction; neither has been shown with two real connections. This needs a disposable database, because the rows must be committed, and it was not run against the shared one.
 - **Load beyond the bounded local check.** One bounded run was made on 2026-10-02: 25 concurrent clients for 20 seconds against a local server and the development database, read-only (provinces, a province's districts, a district's substations, and a one-day regional reading window of 50 rows), signed in as the national demo reader. 1,922 requests, all 200, no errors; latency 257 ms median, 286 ms at the 95th percentile, 490 ms at the 99th, 610 ms maximum. Server and clients ran in one process on one machine with the database in another region, so the figures mostly show the round trip to the database. Writes under load, and the deployed free instance, were not load tested.
-- **Deployment.** The checks on the public URL (HTTPS, Swagger, sign-in, seeded reads) are recorded in the README once made.
+- **Writes on the deployed service.** Creating installations and ingesting readings were tested locally only, so the seeded data stays as marked.
+- **Client address behind Render's proxy.** The per-address token rate limit depends on `TRUST_PROXY_HOPS=1` giving the real client address; this was not confirmed on the deployed service.
