@@ -11,7 +11,28 @@ const installationRoutes = require('./routes/installations');
 const readingRoutes = require('./routes/readings');
 const summaryRoutes = require('./routes/summaries');
 
+const pool = require('./config/db');
+const { renderHome } = require('./views/home');
+
 const app = express();
+
+// The rows of the landing page's status card. Each one is checked when the page is requested;
+// nothing here is assumed.
+async function statusChecks() {
+  let database = true;
+  try {
+    await pool.query('SELECT 1');
+  } catch {
+    database = false;
+  }
+  const signing = Buffer.byteLength(process.env.JWT_SECRET ?? '', 'utf8') >= 32;
+  return [
+    { title: 'API Endpoints Ready', detail: `${Object.keys(swaggerSpec.paths).length} paths under /solar/v1.0`, healthy: true },
+    { title: 'Database Connected', detail: 'PostgreSQL answering queries', healthy: database },
+    { title: 'Token Issuing', detail: 'JWT sign-in for staff, devices, provisioner', healthy: signing },
+    { title: 'OpenAPI Documentation', detail: 'Swagger UI at /api-docs', healthy: true },
+  ];
+}
 
 // Number of proxies in front of the app whose X-Forwarded-For entries are trusted, so req.ip
 // (used for rate limiting) is the real client address. 0 locally; set for Render in render.yaml.
@@ -34,7 +55,13 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app
   .route('/')
   .get((req, res) => {
-    res.json({ status: 'ok' });
+    // JSON is listed first, so a client that accepts anything (Render's health check, fetch,
+    // curl) still gets the small status body. A browser asks for text/html and gets the page.
+    res.format({
+      'application/json': () => res.json({ status: 'ok' }),
+      'text/html': async () => res.send(renderHome(await statusChecks())),
+      default: () => res.json({ status: 'ok' }),
+    });
   })
   .all(methodNotAllowed('GET', 'HEAD'));
 

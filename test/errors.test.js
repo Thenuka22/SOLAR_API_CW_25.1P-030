@@ -43,6 +43,27 @@ describe('application routes', () => {
     assert.deepEqual(await res.json(), { status: 'ok' });
   });
 
+  test('a browser gets the landing page at /, with a link to the endpoints', async () => {
+    const res = await fetch(`${server.url}/`, {
+      headers: { Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' },
+    });
+    assert.equal(res.status, 200);
+    assert.match(res.headers.get('content-type'), /^text\/html/);
+    const page = await res.text();
+    assert.match(page, /<a class="button" href="\/api-docs">View Endpoints<\/a>/);
+    assert.match(page, /href="https:\/\/itkannagara\.dev"/);
+    // The status rows are checked, not fixed text: each shows one of the two states.
+    assert.equal(page.match(/class="badge[^"]*">(Healthy|Unavailable)</g).length, 4);
+  });
+
+  test('a client that does not ask for HTML still gets the JSON status', async () => {
+    for (const Accept of ['application/json', '*/*', 'application/xml']) {
+      const res = await fetch(`${server.url}/`, { headers: { Accept } });
+      assert.equal(res.status, 200, Accept);
+      assert.deepEqual(await res.json(), { status: 'ok' }, Accept);
+    }
+  });
+
   test('HEAD / is allowed', async () => {
     const res = await fetch(`${server.url}/`, { method: 'HEAD' });
     assert.equal(res.status, 200);

@@ -64,7 +64,7 @@ const definition = {
       get: {
         tags: ['Status'],
         summary: 'Service status',
-        description: 'Health check used by Render. Not under the versioned base path.',
+        description: 'Health check used by Render. Not under the versioned base path. A browser, which asks for `text/html`, gets a landing page with live status checks and a link to this documentation instead; every other client gets this JSON body.',
         responses: {
           200: {
             description: 'The service is running.',
