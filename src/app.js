@@ -50,7 +50,8 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+// persistAuthorization keeps the token entered under Authorize across page reloads.
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { swaggerOptions: { persistAuthorization: true } }));
 
 app
   .route('/')

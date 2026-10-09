@@ -110,6 +110,24 @@ describe('OpenAPI contract for implemented endpoints', () => {
     }
   });
 
+  test('every documented error response has examples that match the Error schema', () => {
+    const ajv = new Ajv({ strict: false, validateFormats: false });
+    const validate = ajv.compile(validated.components.schemas.Error);
+    for (const [route, methods] of Object.entries(validated.paths)) {
+      for (const [method, operation] of Object.entries(methods)) {
+        for (const [status, response] of Object.entries(operation.responses)) {
+          if (Number(status) < 400) continue;
+          const examples = response.content['application/json'].examples;
+          const label = `${method.toUpperCase()} ${route} ${status}`;
+          assert.ok(examples && Object.keys(examples).length > 0, `${label}: no examples`);
+          for (const [name, example] of Object.entries(examples)) {
+            assert.equal(validate(example.value), true, `${label} ${name}: ${JSON.stringify(validate.errors)}`);
+          }
+        }
+      }
+    }
+  });
+
   test('protected reads and response validators are described on the correct operations', () => {
     const list = validated.paths['/solar/v1.0/provinces'].get;
     const single = validated.paths['/solar/v1.0/provinces/{province-id}'].get;

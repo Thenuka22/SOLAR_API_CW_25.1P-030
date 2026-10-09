@@ -99,10 +99,13 @@ async function issueTokenHandler(req, res) {
  *             $ref: '#/components/schemas/TokenRequest'
  *           examples:
  *             staff:
- *               value: { principalType: staff, email: reader@example.lk, password: a long staff password }
+ *               summary: Staff reader (email and password)
+ *               value: { principalType: staff, email: national.reader@slsea.example, password: a long staff password }
  *             device:
+ *               summary: Metering device (meter ID and issued secret)
  *               value: { principalType: device, meterId: MTR-0001, deviceSecret: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA }
  *             provisioner:
+ *               summary: Provisioner (username and password)
  *               value: { principalType: provisioner, username: provisioner, password: a long provisioner password }
  *     responses:
  *       200:
@@ -124,6 +127,24 @@ async function issueTokenHandler(req, res) {
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
+ *             examples:
+ *               invalidCredentials:
+ *                 summary: Wrong password, unknown identifier, or no credential (3001)
+ *                 value: { code: 3001, message: The credentials are not valid., details: [] }
+ *               missingField:
+ *                 summary: Required field missing (2001)
+ *                 value:
+ *                   code: 2001
+ *                   message: The request is not valid.
+ *                   details:
+ *                     - { location: body, field: password, issue: password must be a non-empty string of at most 128 characters. }
+ *               unknownType:
+ *                 summary: Unknown principalType (2001)
+ *                 value:
+ *                   code: 2001
+ *                   message: The request is not valid.
+ *                   details:
+ *                     - { location: body, field: principalType, issue: 'principalType must be staff, device, or provisioner.' }
  *       406:
  *         $ref: '#/components/responses/NotAcceptable'
  *       413:

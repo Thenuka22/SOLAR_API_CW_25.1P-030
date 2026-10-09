@@ -1,6 +1,7 @@
 // The landing page a browser gets at "/". One self-contained HTML document: inline CSS, no
-// build step. The animated background is a Spline scene loaded from its CDN; without it the
-// page still shows on a plain light background.
+// build step. The animated background is a Spline scene loaded from its CDN, only on screens
+// wider than 900px where it shows beside the text; phones and tablets, and any screen where it
+// fails to load, get the plain light background.
 //
 // `checks` is a list of { title, detail, healthy } rows for the status card.
 
@@ -25,7 +26,6 @@ function renderHome(checks) {
   <title>Real-Time Solar Generation Data API</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script type="module" src="${SPLINE_VIEWER}"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root { --ink: #0a0a0a; --muted: #5c5c5c; --lime: #c8f560; --panel: #121212; --line: rgba(255, 255, 255, 0.09); }
@@ -34,7 +34,7 @@ function renderHome(checks) {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: #f7f7f7; color: var(--ink); overflow-x: hidden;
     }
-    .hero { position: relative; min-height: 100vh; display: flex; align-items: center; overflow: hidden; }
+    .hero { position: relative; min-height: 100vh; min-height: 100svh; display: flex; align-items: center; overflow: hidden; }
     /* The scene is drawn bright on dark; inverted, it becomes grey on white. */
     .scene {
       position: absolute; top: 0; bottom: 0; left: 28%; width: 95%; z-index: 0; pointer-events: none;
@@ -50,6 +50,7 @@ function renderHome(checks) {
       position: relative; z-index: 1; width: 100%; max-width: 1200px; margin: 0 auto; padding: 64px 24px;
       display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 48px; align-items: center;
     }
+    .wrap > * { min-width: 0; }
     .eyebrow { font-size: 0.78rem; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 22px; }
     h1 { font-size: clamp(2.6rem, 6vw, 4.6rem); font-weight: 800; line-height: 1.04; letter-spacing: -0.035em; margin-bottom: 26px; }
     .lead { font-size: 1.12rem; line-height: 1.6; color: var(--muted); max-width: 440px; margin-bottom: 34px; }
@@ -68,6 +69,8 @@ function renderHome(checks) {
       mask-image: radial-gradient(closest-side, #000 55%, transparent);
       -webkit-mask-image: radial-gradient(closest-side, #000 55%, transparent);
     }
+    /* The card and its toast; the toast is placed against the card, not the column. */
+    .device { position: relative; width: 100%; max-width: 440px; }
     .card {
       width: 100%; max-width: 440px; background: var(--panel); color: #fff; border-radius: 16px;
       padding: 22px 26px 12px; box-shadow: 0 30px 70px rgba(0, 0, 0, 0.28);
@@ -94,8 +97,8 @@ function renderHome(checks) {
     .row:last-child { border-bottom: 0; }
     .row-text { flex: 1; display: flex; flex-direction: column; gap: 3px; }
     .row-text strong { font-size: 0.95rem; font-weight: 600; }
-    .row-text small { font-size: 0.82rem; color: #a8a8a8; }
-    .badge { font-size: 0.78rem; font-weight: 500; color: var(--lime); background: #262626; border-radius: 4px; padding: 7px 12px; }
+    .row-text small { font-size: 0.82rem; color: #a8a8a8; overflow-wrap: anywhere; }
+    .badge { flex: none; font-size: 0.78rem; font-weight: 500; color: var(--lime); background: #262626; border-radius: 4px; padding: 7px 12px; }
     .badge.down { color: #ff9c9c; }
     .toast {
       position: absolute; right: -28px; bottom: -52px; background: #fff; color: var(--ink); border-radius: 6px;
@@ -112,14 +115,39 @@ function renderHome(checks) {
     }
     .author:hover, .author:focus-visible { opacity: 1; }
     @media (max-width: 900px) {
-      .wrap { grid-template-columns: 1fr; padding: 48px 20px 80px; }
-      .toast { right: 8px; }
+      .wrap { grid-template-columns: 1fr; gap: 56px; padding: 56px 24px 96px; }
+      .lead { max-width: 560px; }
+      .stage { justify-content: flex-start; }
+      .device { max-width: 520px; }
+      .toast { right: 16px; bottom: -44px; }
+    }
+    @media (max-width: 600px) {
+      .hero { align-items: flex-start; }
+      .wrap { gap: 36px; padding: 40px 16px 76px; }
+      .eyebrow { font-size: 0.7rem; letter-spacing: 0.14em; margin-bottom: 16px; }
+      h1 { font-size: clamp(2.1rem, 10vw, 2.8rem); margin-bottom: 18px; }
+      .lead { font-size: 1rem; margin-bottom: 26px; }
+      .button { display: block; text-align: center; }
+      .stage::before { display: none; }
+      .card { padding: 18px 16px 6px; border-radius: 14px; }
+      .card-top { margin-bottom: 14px; }
+      .card-head { gap: 14px; padding-bottom: 16px; }
+      .logo { width: 50px; height: 50px; font-size: 1.25rem; }
+      .card-head h2 { font-size: 1.08rem; }
+      .card-head p { font-size: 0.85rem; }
+      .row { gap: 12px; padding: 13px 0; }
+      .row-text strong { font-size: 0.9rem; }
+      .row-text small { font-size: 0.78rem; }
+      .badge { padding: 6px 9px; font-size: 0.72rem; }
+      /* In the page flow below the card, so it never covers a status row. */
+      .toast { position: static; margin-top: 14px; }
+      .author { bottom: 18px; }
     }
   </style>
 </head>
 <body>
   <main class="hero">
-    <div class="scene" aria-hidden="true"><spline-viewer url="${SPLINE_SCENE}"></spline-viewer></div>
+    <div class="scene" aria-hidden="true"></div>
     <div class="wrap">
       <section>
         <p class="eyebrow">Real-Time Solar Generation Data API</p>
@@ -128,6 +156,7 @@ function renderHome(checks) {
         <a class="button" href="/api-docs">View Endpoints</a>
       </section>
       <section class="stage" aria-label="Service status">
+        <div class="device">
         <div class="card">
           <div class="card-top">
             <div class="lights"><span></span><span></span><span></span></div>
@@ -147,6 +176,7 @@ function renderHome(checks) {
           <span class="tick">&#10003;</span>
           <span><strong>Deploy Complete</strong><small>The API is running on version 1.0.</small></span>
         </div>
+        </div>
       </section>
     </div>
     <a class="author" href="${PORTFOLIO}" target="_blank" rel="noopener">
@@ -154,6 +184,18 @@ function renderHome(checks) {
       I T Kannangara
     </a>
   </main>
+  <script>
+    // The 3D scene is several megabytes of WebGL; load it only where it is shown.
+    if (window.matchMedia('(min-width: 901px)').matches) {
+      const viewer = document.createElement('script');
+      viewer.type = 'module';
+      viewer.src = '${SPLINE_VIEWER}';
+      document.head.append(viewer);
+      const scene = document.createElement('spline-viewer');
+      scene.setAttribute('url', '${SPLINE_SCENE}');
+      document.querySelector('.scene').append(scene);
+    }
+  </script>
 </body>
 </html>
 `;

@@ -4,11 +4,20 @@ const swaggerJsdoc = require('swagger-jsdoc');
 // OpenAPI document served at /api-docs. Shared components live here; each operation is
 // documented by an @openapi comment next to its route in src/routes/.
 
-const error = (description, extra = {}) => ({
+// `examples` maps a name to [summary, error body]; each body is one the API actually returns.
+const error = (description, examples, extra = {}) => ({
   description,
-  content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+  content: {
+    'application/json': {
+      schema: { $ref: '#/components/schemas/Error' },
+      examples: Object.fromEntries(Object.entries(examples)
+        .map(([name, [summary, value]]) => [name, { summary, value }])),
+    },
+  },
   ...extra,
 });
+const body = (code, message, details = []) => ({ code, message, details });
+const issue = (location, field, text) => ({ location, field, issue: text });
 
 // Shared by Reading and the nullable lastKnownReading in InstallationOverview.
 const reading = {
@@ -119,7 +128,7 @@ const definition = {
         additionalProperties: false,
         properties: {
           principalType: { type: 'string', enum: ['staff'] },
-          email: { type: 'string', minLength: 1, maxLength: 254, example: 'reader@example.lk' },
+          email: { type: 'string', minLength: 1, maxLength: 254, example: 'national.reader@slsea.example' },
           password: { type: 'string', minLength: 1, maxLength: 128, format: 'password' },
         },
       },
@@ -512,24 +521,77 @@ const definition = {
           Vary: { $ref: '#/components/headers/Vary' },
         },
       },
-      BadRequest: error('Invalid input: malformed JSON (1001), validation failure (2001), or another unreadable request (1002).'),
+      BadRequest: error('Invalid input: malformed JSON (1001), validation failure (2001), or another unreadable request (1002).', {
+        invalidQuery: ['Query value out of range (2001)', body(2001, 'The request is not valid.', [
+          issue('query', 'limit', 'limit must be an integer from 1 to 200.'),
+        ])],
+        invalidPath: ['Path ID that is not a UUID (2001)', body(2001, 'The request is not valid.', [
+          issue('path', 'installation-id', 'installation-id must be a UUID.'),
+        ])],
+        invalidBody: ['Body field missing or wrong (2001)', body(2001, 'The request is not valid.', [
+          issue('body', 'capacityKw', 'capacityKw must be a number greater than 0 and at most 9999999.999, with at most 3 decimal places.'),
+        ])],
+        malformedJson: ['Body is not valid JSON (1001)', body(1001, 'The request body is not valid JSON.', [
+          issue('body', null, "Expected property name or '}' in JSON at position 1 (line 1 column 2)"),
+        ])],
+      }),
       Unauthorized: error('Missing (3002) or invalid, expired, or revoked (3003) bearer token.', {
+        missingToken: ['No Authorization header (3002)', body(3002, 'A bearer token is required.')],
+        invalidToken: ['Tampered, expired, or revoked token (3003)', body(3003, 'The bearer token is not valid.')],
+      }, {
         headers: { 'WWW-Authenticate': { $ref: '#/components/headers/WWWAuthenticate' } },
       }),
-      Forbidden: error('The token lacks the scope this operation needs (3004); the response then has `WWW-Authenticate: Bearer error="insufficient_scope"` naming that scope. Also returned when a device addresses an installation other than its own.'),
-      NotFound: error('Missing, or outside the caller\'s jurisdiction (1005). Both give the same response.'),
-      Conflict: error('The request conflicts with stored data: a meter ID that is already registered (4001), a reading that already exists for the installation and instant (4002), or a move or deletion of an installation whose readings must keep their history (4003).'),
-      NotAcceptable: error('The Accept header does not allow application/json (1007).'),
-      UnsupportedMediaType: error('The body is not application/json (1008), or uses an unsupported charset or content encoding (1004).'),
-      PreconditionFailed: error('If-Match or If-Unmodified-Since does not hold for the current version (1010). Nothing was changed.'),
-      PayloadTooLarge: error('The body is larger than 100 KB (1003).'),
+      Forbidden: error('The token lacks the scope this operation needs (3004); the response then has `WWW-Authenticate: Bearer error="insufficient_scope"` naming that scope. Also returned when a device addresses an installation other than its own.', {
+        missingScope: ['Token without the scope this operation needs (3004)', body(3004, 'You do not have permission for this operation.')],
+        otherInstallation: ['Device writing to another installation (3004)', body(3004, 'You do not have permission for this operation.', [
+          issue('path', 'installation-id', 'A device may submit readings only for its own installation.'),
+        ])],
+      }),
+      NotFound: error('Missing, or outside the caller\'s jurisdiction (1005). Both give the same response.', {
+        notFound: ['Missing or outside the jurisdiction (1005)', body(1005, 'The requested resource was not found.')],
+      }),
+      Conflict: error('The request conflicts with stored data: a meter ID that is already registered (4001), a reading that already exists for the installation and instant (4002), or a move or deletion of an installation whose readings must keep their history (4003).', {
+        meterIdTaken: ['Meter ID already registered (4001)', body(4001, 'Another installation already has this meter ID.', [
+          issue('body', 'meterId', 'This meter ID is already registered.'),
+        ])],
+        readingExists: ['Reading already stored for this instant (4002)', body(4002, 'The installation already has a reading at this timestamp.', [
+          issue('body', 'timestamp', 'A reading for this installation and instant already exists.'),
+        ])],
+        installationHasReadings: ['Installation history must be kept (4003)', body(4003, 'The installation has readings, so it cannot be moved or deleted.', [
+          issue('path', 'installation-id', 'An installation with readings cannot be deleted.'),
+        ])],
+      }),
+      NotAcceptable: error('The Accept header does not allow application/json (1007).', {
+        notAcceptable: ['Accept excludes JSON (1007)', body(1007, 'The API can only respond with application/json.', [
+          issue('header', 'Accept', 'Accept must allow application/json.'),
+        ])],
+      }),
+      UnsupportedMediaType: error('The body is not application/json (1008), or uses an unsupported charset or content encoding (1004).', {
+        notJson: ['Body is not JSON (1008)', body(1008, 'The request body must be application/json.', [
+          issue('header', 'Content-Type', 'Content-Type must be application/json.'),
+        ])],
+      }),
+      PreconditionFailed: error('If-Match or If-Unmodified-Since does not hold for the current version (1010). Nothing was changed.', {
+        stale: ['Installation changed since it was read (1010)', body(1010, 'The resource has changed since the version named in the request conditions.')],
+      }),
+      PayloadTooLarge: error('The body is larger than 100 KB (1003).', {
+        tooLarge: ['Body over 100 KB (1003)', body(1003, 'The request body is too large.', [
+          issue('body', null, 'The body must not exceed 102400 bytes.'),
+        ])],
+      }),
       TooManyRequests: error('Rate limit exceeded (1009).', {
+        rateLimited: ['Too many token requests (1009)', body(1009, 'Too many requests. Try again later.', [
+          issue('request', null, 'Retry after 840 seconds.'),
+        ])],
+      }, {
         headers: {
           'Retry-After': { $ref: '#/components/headers/RetryAfter' },
           RateLimit: { $ref: '#/components/headers/RateLimit' },
         },
       }),
-      InternalError: error('Unexpected server failure (1000). No internal details are returned.'),
+      InternalError: error('Unexpected server failure (1000). No internal details are returned.', {
+        internal: ['Unexpected failure; details are only logged (1000)', body(1000, 'An unexpected error occurred.')],
+      }),
     },
   },
 };
